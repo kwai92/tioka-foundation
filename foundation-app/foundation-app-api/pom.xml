@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.foundation</groupId>
+        <artifactId>foundation-app</artifactId>
+        <version>${revision}</version>
+    </parent>
+
+    <artifactId>foundation-app-api</artifactId>
+    <name>foundation-app-api</name>
+    <description>应用与权限中心契约（AppApi、AppClientApi、ServiceAccountApi 与命令视图；F-05 BAS-04）</description>
+
+    <dependencies>
+        <!-- 跨模块错误码与异常（BizException/ErrorCode） -->
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-common-api</artifactId>
+        </dependency>
+    </dependencies>
+</project>

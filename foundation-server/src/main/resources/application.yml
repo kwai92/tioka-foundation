@@ -30,6 +30,13 @@ foundation:
     password: ${FOUNDATION_DB_PASSWORD:foundation}
   flyway:
     enabled: ${FOUNDATION_FLYWAY_ENABLED:true}
+  app:
+    # 应用默认授权模式（CONCENTRATED 集中 / DISTRIBUTED 分散，F-05 BAS-04 §配置）
+    default-auth-mode: ${FOUNDATION_APP_DEFAULT_AUTH_MODE:CONCENTRATED}
+    # 客户端密钥轮换周期（天），到期提示轮换（F-05 BAS-04 §配置）
+    client-secret-rotation-days: ${FOUNDATION_APP_SECRET_ROTATION_DAYS:180}
+    # 服务账号客户端 client_id 模板，{appCode} 为占位（F-05 BAS-04 §配置）
+    service-account-client-id-pattern: "{appCode}-sa"
   keycloak:
     server-url: ${FOUNDATION_KEYCLOAK_URL:http://localhost:8180}
     realm: enterprise

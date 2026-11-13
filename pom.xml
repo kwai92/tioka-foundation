@@ -15,6 +15,7 @@
         <module>foundation-dependencies</module>
         <module>foundation-parent</module>
         <module>foundation-common</module>
+        <module>foundation-app</module>
         <module>foundation-test</module>
         <module>foundation-server</module>
         <module>foundation-it-example</module>

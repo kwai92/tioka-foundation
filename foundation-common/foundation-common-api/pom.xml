@@ -12,5 +12,13 @@
 
     <artifactId>foundation-common-api</artifactId>
     <name>foundation-common-api</name>
-    <description>通用公共域契约（DTO、事件、对外接口；BAS-09 起填充）</description>
+    <description>通用公共域契约（DTO、事件、对外接口、ID 生成；BAS-09 起填充）</description>
+
+    <dependencies>
+        <!-- 公共 ID 生成（Ids）：各领域 -biz 经本 -api 传递，避免 biz 间直接依赖 -->
+        <dependency>
+            <groupId>com.github.f4b6a3</groupId>
+            <artifactId>ulid-creator</artifactId>
+        </dependency>
+    </dependencies>
 </project>
