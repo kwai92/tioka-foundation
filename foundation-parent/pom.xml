@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.foundation</groupId>
+        <artifactId>foundation-build</artifactId>
+        <version>${revision}</version>
+    </parent>
+
+    <artifactId>foundation-parent</artifactId>
+    <packaging>pom</packaging>
+    <name>foundation-parent</name>
+    <description>Foundation 父工程 —— 编译参数、格式与静态检查、依赖收敛、发布配置</description>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.foundation</groupId>
+                <artifactId>foundation-dependencies</artifactId>
+                <version>${revision}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>3.13.0</version>
+                    <configuration>
+                        <release>${maven.compiler.release}</release>
+                        <!-- 保留参数名：Spring 绑定与 -parameters 约定 -->
+                        <parameters>true</parameters>
+                        <encoding>UTF-8</encoding>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>3.5.2</version>
+                    <configuration>
+                        <!-- 时间统一 UTC（00-施工总纲 §2.2）；*IT 默认不进单元测试 -->
+                        <argLine>-Dnet.bytebuddy.experimental=true -Duser.timezone=UTC</argLine>
+                        <excludedGroups>gate</excludedGroups>
+                        <runOrder>random</runOrder>
+                        <excludes>
+                            <exclude>**/*IT.java</exclude>
+                        </excludes>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-failsafe-plugin</artifactId>
+                    <version>3.5.2</version>
+                    <configuration>
+                        <argLine>-Dnet.bytebuddy.experimental=true -Duser.timezone=UTC</argLine>
+                        <excludedGroups>gate</excludedGroups>
+                        <runOrder>random</runOrder>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <version>${spring-boot.version}</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>3.5.0</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>extra-enforcer-rules</artifactId>
+                        <version>1.8.0</version>
+                    </dependency>
+                </dependencies>
+                <executions>
+                    <execution>
+                        <id>enforce-java-and-deps</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <!-- 约束 1：Java 版本 -->
+                                <requireJavaVersion>
+                                    <version>[17,)</version>
+                                </requireJavaVersion>
+                                <!-- 约束 2：禁止 Maven 模块循环依赖 -->
+                                <banCircularDependencies/>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <distributionManagement>
+        <repository>
+            <id>foundation-private</id>
+            <name>Foundation Private Repository</name>
+            <url>${env.FOUNDATION_REPO_URL}</url>
+        </repository>
+        <snapshotRepository>
+            <id>foundation-private</id>
+            <name>Foundation Private Snapshot Repository</name>
+            <url>${env.FOUNDATION_REPO_URL}</url>
+        </snapshotRepository>
+    </distributionManagement>
+
+    <!-- 闸门流水线：默认 verify 排除 @Tag("gate")，本 profile 只跑 gate（GF 闸门用例） -->
+    <profiles>
+        <profile>
+            <id>gate</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <argLine>-Dnet.bytebuddy.experimental=true -Duser.timezone=UTC -Dgate=true</argLine>
+                            <groups>gate</groups>
+                            <excludedGroups combine.self="override"/>
+                            <includes>
+                                <include>**/*IT.java</include>
+                            </includes>
+                            <excludes combine.self="override"/>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <configuration>
+                            <!-- gate 用例已由 surefire（-Pgate 含 *IT）执行 -->
+                            <skipITs>true</skipITs>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+</project>

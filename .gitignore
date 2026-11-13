@@ -1,0 +1,20 @@
+# 构建产物
+target/
+.flattened-pom.xml
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.DS_Store
+
+# 前端
+node_modules/
+dist/
+*.local
+
+# 日志与本地数据
+logs/
+*.log

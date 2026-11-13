@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.foundation</groupId>
+        <artifactId>foundation-parent</artifactId>
+        <version>${revision}</version>
+        <!-- foundation-parent 与示例工程同级，不是 ../pom.xml -->
+        <relativePath>../foundation-parent/pom.xml</relativePath>
+    </parent>
+
+    <artifactId>foundation-it-example</artifactId>
+    <name>foundation-it-example</name>
+    <description>BAS-23 验收用示例工程：只引 foundation-parent，依赖不写版本</description>
+
+    <!--
+      刻意只声明父工程、依赖项不写版本：若 foundation-parent → foundation-dependencies
+      的 dependencyManagement 未生效，本模块编译与测试都会失败。
+    -->
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.github.f4b6a3</groupId>
+            <artifactId>ulid-creator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>
