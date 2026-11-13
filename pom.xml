@@ -15,7 +15,11 @@
         <module>foundation-dependencies</module>
         <module>foundation-parent</module>
         <module>foundation-common</module>
+        <module>foundation-starter-core</module>
         <module>foundation-starter-data</module>
+        <module>foundation-starter-security</module>
+        <module>foundation-starter-audit</module>
+        <module>foundation-starter-client</module>
         <module>foundation-app</module>
         <module>foundation-authz</module>
         <module>foundation-test</module>
