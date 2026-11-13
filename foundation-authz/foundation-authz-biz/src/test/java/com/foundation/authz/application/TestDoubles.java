@@ -6,17 +6,28 @@ import com.foundation.app.api.AppRegistrationCmd;
 import com.foundation.app.api.AppUpdateCmd;
 import com.foundation.app.api.AppView;
 import com.foundation.authz.domain.AppManifest;
+import com.foundation.authz.domain.DataDimension;
+import com.foundation.authz.domain.DimensionValue;
+import com.foundation.authz.domain.GrantSource;
 import com.foundation.authz.domain.GrantSubjectType;
 import com.foundation.authz.domain.LifecycleStatus;
 import com.foundation.authz.domain.Menu;
 import com.foundation.authz.domain.PermissionCode;
+import com.foundation.authz.domain.PersonDimensionGrant;
 import com.foundation.authz.domain.Role;
+import com.foundation.authz.domain.RoleDataScope;
+import com.foundation.authz.domain.RoleDimensionValue;
 import com.foundation.authz.domain.RoleGrant;
 import com.foundation.authz.domain.RoleMutex;
 import com.foundation.authz.domain.SubjectMembership;
 import com.foundation.authz.infrastructure.AppManifestRepository;
+import com.foundation.authz.infrastructure.DataDimensionRepository;
+import com.foundation.authz.infrastructure.DimensionValueRepository;
 import com.foundation.authz.infrastructure.MenuRepository;
 import com.foundation.authz.infrastructure.PermissionCodeRepository;
+import com.foundation.authz.infrastructure.PersonDimensionRepository;
+import com.foundation.authz.infrastructure.RoleDataScopeRepository;
+import com.foundation.authz.infrastructure.RoleDimensionValueRepository;
 import com.foundation.authz.infrastructure.RoleGrantRepository;
 import com.foundation.authz.infrastructure.RoleMutexRepository;
 import com.foundation.authz.infrastructure.RoleRepository;
@@ -24,13 +35,14 @@ import com.foundation.common.api.event.OutboxAppender;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-/** BAS-05 应用层单测用的内存仓储与桩（对齐 foundation-app-biz 的测试风格）。 */
+/** BAS-05/BAS-06 应用层单测用的内存仓储与桩（对齐 foundation-app-biz 的测试风格）。 */
 final class TestDoubles {
 
     private TestDoubles() {
@@ -289,6 +301,158 @@ final class TestDoubles {
         public void append(String topic, String eventType, String aggregate, Map<String, Object> payload) {
             eventTypes.add(eventType);
             payloads.add(payload);
+        }
+    }
+
+    static final class InMemoryDataDimensionRepository implements DataDimensionRepository {
+
+        final Map<String, DataDimension> byId = new LinkedHashMap<>();
+
+        @Override
+        public List<DataDimension> list(String appCode) {
+            return byId.values().stream()
+                    .filter(dimension -> appCode == null || appCode.isBlank()
+                            ? dimension.global()
+                            : dimension.global() || appCode.equals(dimension.appCode()))
+                    .toList();
+        }
+
+        @Override
+        public List<DataDimension> listAll() {
+            return List.copyOf(byId.values());
+        }
+
+        @Override
+        public Optional<DataDimension> findById(String id) {
+            return Optional.ofNullable(byId.get(id));
+        }
+
+        @Override
+        public Optional<DataDimension> findByCode(String appCode, String code) {
+            return byId.values().stream()
+                    .filter(dimension -> dimension.code().equals(code))
+                    .filter(dimension -> appCode == null || appCode.isBlank()
+                            ? dimension.global()
+                            : appCode.equals(dimension.appCode()))
+                    .findFirst();
+        }
+
+        @Override
+        public Optional<DataDimension> findByCodeAnywhere(String code) {
+            return byId.values().stream()
+                    .filter(dimension -> dimension.code().equals(code))
+                    .min(Comparator.comparingInt(dimension -> dimension.global() ? 0 : 1));
+        }
+
+        @Override
+        public void insert(DataDimension dimension) {
+            byId.put(dimension.id(), dimension);
+        }
+
+        @Override
+        public void update(DataDimension dimension) {
+            byId.put(dimension.id(), dimension);
+        }
+    }
+
+    static final class InMemoryDimensionValueRepository implements DimensionValueRepository {
+
+        final Map<String, DimensionValue> byId = new LinkedHashMap<>();
+
+        @Override
+        public List<DimensionValue> listByDimension(String dimensionId) {
+            return byId.values().stream().filter(value -> value.dimensionId().equals(dimensionId)).toList();
+        }
+
+        @Override
+        public Optional<DimensionValue> findByCode(String dimensionId, String code) {
+            return byId.values().stream()
+                    .filter(value -> value.dimensionId().equals(dimensionId) && value.code().equals(code))
+                    .findFirst();
+        }
+
+        @Override
+        public void insert(DimensionValue value) {
+            byId.put(value.id(), value);
+        }
+
+        @Override
+        public void update(DimensionValue value) {
+            byId.put(value.id(), value);
+        }
+
+        @Override
+        public void deactivate(String dimensionId, String code) {
+            findByCode(dimensionId, code).ifPresent(value -> byId.put(value.id(),
+                    new DimensionValue(value.id(), value.dimensionId(), value.code(), value.name(),
+                            value.parentId(), false)));
+        }
+
+        @Override
+        public void deleteByDimension(String dimensionId) {
+            byId.values().removeIf(value -> value.dimensionId().equals(dimensionId));
+        }
+    }
+
+    static final class InMemoryRoleDataScopeRepository implements RoleDataScopeRepository {
+
+        final Map<String, RoleDataScope> byRole = new LinkedHashMap<>();
+
+        @Override
+        public Optional<RoleDataScope> findByRole(String roleCode) {
+            return Optional.ofNullable(byRole.get(roleCode));
+        }
+
+        @Override
+        public void upsert(RoleDataScope scope) {
+            byRole.put(scope.roleCode(), scope);
+        }
+    }
+
+    static final class InMemoryRoleDimensionValueRepository implements RoleDimensionValueRepository {
+
+        final List<RoleDimensionValue> rows = new ArrayList<>();
+
+        @Override
+        public List<RoleDimensionValue> listByRole(String roleCode) {
+            return rows.stream().filter(value -> value.roleCode().equals(roleCode)).toList();
+        }
+
+        @Override
+        public void deleteByRole(String roleCode) {
+            rows.removeIf(value -> value.roleCode().equals(roleCode));
+        }
+
+        @Override
+        public void insert(RoleDimensionValue value) {
+            rows.add(value);
+        }
+    }
+
+    static final class InMemoryPersonDimensionRepository implements PersonDimensionRepository {
+
+        final List<PersonDimensionGrant> rows = new ArrayList<>();
+
+        @Override
+        public List<PersonDimensionGrant> listByPerson(String personId) {
+            return rows.stream().filter(grant -> grant.personId().equals(personId)).toList();
+        }
+
+        @Override
+        public List<PersonDimensionGrant> listByPersonAndDimension(String personId, String dimensionId) {
+            return rows.stream()
+                    .filter(grant -> grant.personId().equals(personId) && grant.dimensionId().equals(dimensionId))
+                    .toList();
+        }
+
+        @Override
+        public void insert(PersonDimensionGrant grant) {
+            rows.add(grant);
+        }
+
+        @Override
+        public void deleteByPersonAndDimension(String personId, String dimensionId) {
+            rows.removeIf(grant -> grant.personId().equals(personId) && grant.dimensionId().equals(dimensionId));
         }
     }
 }
