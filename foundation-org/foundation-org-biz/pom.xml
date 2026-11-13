@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.foundation</groupId>
+        <artifactId>foundation-org</artifactId>
+        <version>${revision}</version>
+    </parent>
+
+    <artifactId>foundation-org-biz</artifactId>
+    <name>foundation-org-biz</name>
+    <description>组织与人员实现（F-03 BAS-02）</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-org-api</artifactId>
+        </dependency>
+        <!-- 跨模块只依赖对方 -api：错误码、事件契约与 outbox 追加器取自 common-api -->
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-common-api</artifactId>
+        </dependency>
+        <!-- 权限注解与当前用户（@RequirePermission / PrincipalHolder） -->
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
+        </dependency>
+        <!-- REST 层：Controller 与请求校验（全局异常处理与 Idempotency-Key 归 BAS-24 starter-web） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <!-- 持久化：48-CS §4「ORM 仅 MyBatis-Plus」，统一经 starter 装配（含 BaseDO 审计基类） -->
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-starter-data</artifactId>
+        </dependency>
+        <!-- Excel 导入导出（F-03 §4） -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <!-- 单元测试 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

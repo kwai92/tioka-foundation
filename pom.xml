@@ -22,6 +22,7 @@
         <module>foundation-starter-client</module>
         <module>foundation-app</module>
         <module>foundation-authz</module>
+        <module>foundation-org</module>
         <module>foundation-test</module>
         <module>foundation-server</module>
         <module>foundation-it-example</module>

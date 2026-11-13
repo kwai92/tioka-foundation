@@ -28,6 +28,8 @@
         <opentelemetry.version>1.43.0</opentelemetry.version>
         <okhttp.version>4.12.0</okhttp.version>
         <nimbus-jose-jwt.version>9.37.3</nimbus-jose-jwt.version>
+        <!-- 组织人员 Excel 导入导出（F-03 BAS-02 §4） -->
+        <poi.version>5.2.5</poi.version>
         <!-- Boot 3.2 自带 1.19.x 连不上较新的 Docker（最低 API 1.44）；1.21.4 起兼容 -->
         <testcontainers.version>1.21.4</testcontainers.version>
         <testcontainers-keycloak.version>3.3.0</testcontainers-keycloak.version>
@@ -113,6 +115,16 @@
                 <artifactId>foundation-authz-biz</artifactId>
                 <version>${revision}</version>
             </dependency>
+            <dependency>
+                <groupId>com.foundation</groupId>
+                <artifactId>foundation-org-api</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.foundation</groupId>
+                <artifactId>foundation-org-biz</artifactId>
+                <version>${revision}</version>
+            </dependency>
             <!-- 测试基座：不进生产依赖（F-00 §5 约定） -->
             <dependency>
                 <groupId>com.foundation</groupId>
@@ -191,6 +203,11 @@
                 <groupId>com.squareup.okhttp3</groupId>
                 <artifactId>mockwebserver</artifactId>
                 <version>${okhttp.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.poi</groupId>
+                <artifactId>poi-ooxml</artifactId>
+                <version>${poi.version}</version>
             </dependency>
             <!-- JWT 验签与声明提取（foundation-starter-security 的 jwt 令牌来源） -->
             <dependency>

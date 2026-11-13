@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.foundation</groupId>
+        <artifactId>foundation-parent</artifactId>
+        <version>${revision}</version>
+        <relativePath>../foundation-parent/pom.xml</relativePath>
+    </parent>
+
+    <artifactId>foundation-org</artifactId>
+    <packaging>pom</packaging>
+    <name>foundation-org</name>
+    <description>组织与人员（F-03 BAS-02：组织单元、岗位、职级、人员、任职、汇报关系、导入导出、变更历史）——聚合器</description>
+
+    <modules>
+        <module>foundation-org-api</module>
+        <module>foundation-org-biz</module>
+    </modules>
+</project>

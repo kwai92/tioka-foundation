@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.foundation</groupId>
+        <artifactId>foundation-org</artifactId>
+        <version>${revision}</version>
+    </parent>
+
+    <artifactId>foundation-org-api</artifactId>
+    <name>foundation-org-api</name>
+    <description>组织与人员对外契约（F-03 BAS-02：DTO、查询接口、四个事件）</description>
+</project>
