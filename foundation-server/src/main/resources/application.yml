@@ -38,3 +38,11 @@ foundation:
     client-secret: ${FOUNDATION_KEYCLOAK_SECRET:}
     connect-timeout: 3s
     read-timeout: 5s
+  dict:
+    cache-ttl: ${FOUNDATION_DICT_CACHE_TTL:5m}
+  param:
+    secret-mask: "******"
+    max-value-length: 4096
+    master-key: ${FOUNDATION_PARAM_MASTER_KEY:}
+  event:
+    topic: ${FOUNDATION_EVENT_TOPIC:fdn-events}

@@ -12,7 +12,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * F-02 BAS-01：空库执行至 V1，outbox 表与扩展就位（集成层，Testcontainers PostgreSQL）。
+ * F-02 BAS-01：空库执行迁移至最新版本，outbox 表与扩展就位（集成层，Testcontainers PostgreSQL）。
  */
 @SpringBootTest
 class FlywayBaselineIT {
@@ -29,9 +29,9 @@ class FlywayBaselineIT {
     private JdbcTemplate jdbc;
 
     @Test
-    void migratesEmptyDatabaseToV1() {
+    void migratesEmptyDatabaseToLatestVersion() {
         assertThat(flyway.info().current()).isNotNull();
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("1");
+        assertThat(flyway.info().pending()).isEmpty();
     }
 
     @Test
