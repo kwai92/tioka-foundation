@@ -1,5 +1,6 @@
 package com.foundation.authz.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.foundation.app.api.AppApi;
 import com.foundation.app.api.AppManifestVersionApi;
 import com.foundation.authz.api.DataDimensionApi;
@@ -9,6 +10,7 @@ import com.foundation.authz.api.ManifestApi;
 import com.foundation.authz.api.MenuApi;
 import com.foundation.authz.api.PermissionApi;
 import com.foundation.authz.api.RoleApi;
+import com.foundation.authz.api.SnapshotApi;
 import com.foundation.authz.application.AppIdResolver;
 import com.foundation.authz.application.AuthorizationQueryService;
 import com.foundation.authz.application.DataDimensionAppService;
@@ -22,9 +24,14 @@ import com.foundation.authz.application.PermissionCodeCatalogService;
 import com.foundation.authz.application.RoleGrantService;
 import com.foundation.authz.application.RoleMutexChecker;
 import com.foundation.authz.application.RoleService;
+import com.foundation.authz.application.SnapshotAppService;
+import com.foundation.authz.application.SnapshotAssembler;
+import com.foundation.authz.application.SnapshotRecomputeService;
+import com.foundation.authz.domain.AffectedPersonResolver;
 import com.foundation.authz.domain.DataScopeResolver;
 import com.foundation.authz.domain.SubjectMembership;
 import com.foundation.authz.infrastructure.AppManifestRepository;
+import com.foundation.authz.infrastructure.AuthzChangedEventPublisher;
 import com.foundation.authz.infrastructure.DataDimensionRepository;
 import com.foundation.authz.infrastructure.DimensionValueRepository;
 import com.foundation.authz.infrastructure.MenuRepository;
@@ -39,6 +46,7 @@ import com.foundation.authz.infrastructure.MybatisRoleDimensionValueRepository;
 import com.foundation.authz.infrastructure.MybatisRoleGrantRepository;
 import com.foundation.authz.infrastructure.MybatisRoleMutexRepository;
 import com.foundation.authz.infrastructure.MybatisRoleRepository;
+import com.foundation.authz.infrastructure.MybatisSnapshotRepository;
 import com.foundation.authz.infrastructure.NoopSubjectMembership;
 import com.foundation.authz.infrastructure.PermissionCodeRepository;
 import com.foundation.authz.infrastructure.PersonDimensionRepository;
@@ -47,7 +55,9 @@ import com.foundation.authz.infrastructure.RoleDimensionValueRepository;
 import com.foundation.authz.infrastructure.RoleGrantRepository;
 import com.foundation.authz.infrastructure.RoleMutexRepository;
 import com.foundation.authz.infrastructure.RoleRepository;
+import com.foundation.authz.infrastructure.SnapshotRepository;
 import com.foundation.authz.infrastructure.mapper.AppManifestMapper;
+import com.foundation.authz.infrastructure.mapper.AuthzSnapshotMapper;
 import com.foundation.authz.infrastructure.mapper.DataDimensionMapper;
 import com.foundation.authz.infrastructure.mapper.DimensionValueMapper;
 import com.foundation.authz.infrastructure.mapper.MenuMapper;
@@ -260,5 +270,50 @@ public class AuthzAutoConfiguration {
                                      DataScopeResolver resolver, AppApi apps) {
         return new DataScopeAppService(roles, roleScopes, roleDimensionValues, personDimensions,
                 dimensions, effectiveRoles, membership, resolver, apps);
+    }
+
+    // ---------- BAS-07 授权快照 ----------
+
+    @Bean
+    @ConditionalOnMissingBean
+    public SnapshotRepository snapshotRepository(AuthzSnapshotMapper mapper, ObjectMapper objectMapper) {
+        return new MybatisSnapshotRepository(mapper, objectMapper);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public AuthzChangedEventPublisher authzChangedEventPublisher(OutboxAppender outbox,
+                                                                 EventProperties eventProperties) {
+        return new AuthzChangedEventPublisher(outbox, eventProperties);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public AffectedPersonResolver affectedPersonResolver(SubjectMembership membership) {
+        return new AffectedPersonResolver(membership);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public SnapshotAssembler snapshotAssembler(EffectiveRoleResolver effectiveRoles,
+                                               AuthorizationQueryService authorizations,
+                                               MenuRepository menus, DataScopeApi dataScopes,
+                                               SubjectMembership membership, AppIdResolver appIds) {
+        return new SnapshotAssembler(effectiveRoles, authorizations, menus, dataScopes, membership, appIds);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public SnapshotRecomputeService snapshotRecomputeService(SnapshotRepository snapshots,
+                                                             SnapshotAssembler assembler,
+                                                             AuthzChangedEventPublisher publisher,
+                                                             AffectedPersonResolver affectedPersonResolver) {
+        return new SnapshotRecomputeService(snapshots, assembler, publisher, affectedPersonResolver);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public SnapshotApi snapshotApi(SnapshotRepository snapshots, SnapshotRecomputeService recomputeService) {
+        return new SnapshotAppService(snapshots, recomputeService);
     }
 }

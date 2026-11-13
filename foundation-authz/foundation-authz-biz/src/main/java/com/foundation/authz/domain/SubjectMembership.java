@@ -18,4 +18,18 @@ public interface SubjectMembership {
 
     /** 组织单元的子树（含自身）ID 集合。 */
     Set<String> descendantsOf(String orgUnitId);
+
+    /**
+     * 指定组织单元下的任职人员（供受影响人员判定，F-06 BAS-07 §快照计算）。
+     *
+     * <p>BAS-02 之前的占位实现返回空集合。
+     */
+    default Set<String> personsInOrgUnit(String orgUnitId) {
+        return Set.of();
+    }
+
+    /** 指定岗位下的任职人员；占位实现返回空集合。 */
+    default Set<String> personsInPost(String postId) {
+        return Set.of();
+    }
 }

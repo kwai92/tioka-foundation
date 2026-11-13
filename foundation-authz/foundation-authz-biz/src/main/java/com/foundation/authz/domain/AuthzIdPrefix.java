@@ -18,6 +18,8 @@ public final class AuthzIdPrefix {
     public static final String ROLE_DIMENSION_VALUE = "frv";
     /** 人员维度授予（{@code fdn_person_dimension}）。 */
     public static final String PERSON_DIMENSION = "fpd";
+    /** 授权快照（{@code fdn_authz_snapshot}）。 */
+    public static final String SNAPSHOT = "fsn";
 
     private AuthzIdPrefix() {
     }

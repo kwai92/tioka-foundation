@@ -5,7 +5,14 @@ import com.foundation.app.api.AppManifestVersionApi;
 import com.foundation.app.api.AppRegistrationCmd;
 import com.foundation.app.api.AppUpdateCmd;
 import com.foundation.app.api.AppView;
+import com.foundation.authz.api.DataScopeApi;
+import com.foundation.authz.api.DataScopeView;
+import com.foundation.authz.api.PersonDimensionCmd;
+import com.foundation.authz.api.RoleDataScopeCmd;
+import com.foundation.authz.api.RoleDataScopeView;
+import com.foundation.authz.api.ScopeView;
 import com.foundation.authz.domain.AppManifest;
+import com.foundation.authz.domain.AuthzSnapshot;
 import com.foundation.authz.domain.DataDimension;
 import com.foundation.authz.domain.DimensionValue;
 import com.foundation.authz.domain.GrantSource;
@@ -31,6 +38,7 @@ import com.foundation.authz.infrastructure.RoleDimensionValueRepository;
 import com.foundation.authz.infrastructure.RoleGrantRepository;
 import com.foundation.authz.infrastructure.RoleMutexRepository;
 import com.foundation.authz.infrastructure.RoleRepository;
+import com.foundation.authz.infrastructure.SnapshotRepository;
 import com.foundation.common.api.event.OutboxAppender;
 
 import java.time.Instant;
@@ -453,6 +461,67 @@ final class TestDoubles {
         @Override
         public void deleteByPersonAndDimension(String personId, String dimensionId) {
             rows.removeIf(grant -> grant.personId().equals(personId) && grant.dimensionId().equals(dimensionId));
+        }
+    }
+
+    static final class InMemorySnapshotRepository implements SnapshotRepository {
+
+        final Map<String, AuthzSnapshot> byKey = new LinkedHashMap<>();
+
+        @Override
+        public Optional<Long> version(String personId, String appCode) {
+            return Optional.ofNullable(byKey.get(key(personId, appCode))).map(AuthzSnapshot::version);
+        }
+
+        @Override
+        public Optional<AuthzSnapshot> find(String personId, String appCode) {
+            return Optional.ofNullable(byKey.get(key(personId, appCode)));
+        }
+
+        @Override
+        public List<String> listPersonsByApp(String appCode) {
+            return byKey.values().stream().filter(snapshot -> snapshot.appCode().equals(appCode))
+                    .map(AuthzSnapshot::personId).toList();
+        }
+
+        @Override
+        public void upsert(AuthzSnapshot snapshot) {
+            byKey.put(key(snapshot.personId(), snapshot.appCode()), snapshot);
+        }
+
+        private static String key(String personId, String appCode) {
+            return personId + "@" + appCode;
+        }
+    }
+
+    /** 数据范围桩：固定返回预设的解析结果（供 BAS-07 快照汇总测试）。 */
+    static final class StubDataScopeApi implements DataScopeApi {
+
+        DataScopeView view = new DataScopeView(ScopeView.of(List.of()), Map.of());
+
+        @Override
+        public void setRoleDataScope(String roleCode, RoleDataScopeCmd cmd) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public RoleDataScopeView roleDataScope(String roleCode) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public List<String> grantPersonDimension(String personId, PersonDimensionCmd cmd) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void revokePersonDimension(String personId, String dimensionCode) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public DataScopeView resolve(String personId, String appCode, Instant at) {
+            return view;
         }
     }
 }
