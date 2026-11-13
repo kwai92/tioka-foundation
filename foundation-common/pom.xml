@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.foundation</groupId>
+        <artifactId>foundation-parent</artifactId>
+        <version>${revision}</version>
+        <!-- foundation-parent 与 foundation-common 同级，不是 ../pom.xml -->
+        <relativePath>../foundation-parent/pom.xml</relativePath>
+    </parent>
+
+    <artifactId>foundation-common</artifactId>
+    <packaging>pom</packaging>
+    <name>foundation-common</name>
+    <description>Foundation 通用公共域（聚合器）</description>
+
+    <modules>
+        <module>foundation-common-api</module>
+        <module>foundation-common-biz</module>
+    </modules>
+</project>

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.foundation</groupId>
+        <artifactId>foundation-parent</artifactId>
+        <version>${revision}</version>
+        <relativePath>../foundation-parent/pom.xml</relativePath>
+    </parent>
+
+    <artifactId>foundation-test</artifactId>
+    <name>foundation-test</name>
+    <description>测试基座：Testcontainers 单例容器（PostgreSQL/Redis/RocketMQ/Keycloak）与 ArchUnit 规则集（BAS-24 充实）</description>
+
+    <!-- 仅供各模块测试引用，不进生产依赖（F-00 §5 约定） -->
+    <dependencies>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+        </dependency>
+        <!-- 闸门基座：Keycloak 24 容器（S15 §14.1 接入自检与 GF 闸门共用） -->
+        <dependency>
+            <groupId>com.github.dasniko</groupId>
+            <artifactId>testcontainers-keycloak</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.tngtech.archunit</groupId>
+            <artifactId>archunit-junit5</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+        </dependency>
+        <!-- register(DynamicPropertyRegistry) 便捷方法：下游 @DynamicPropertySource 直接复用 -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-test</artifactId>
+        </dependency>
+    </dependencies>
+</project>

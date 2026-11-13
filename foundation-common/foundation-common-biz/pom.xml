@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.foundation</groupId>
+        <artifactId>foundation-common</artifactId>
+        <version>${revision}</version>
+    </parent>
+
+    <artifactId>foundation-common-biz</artifactId>
+    <name>foundation-common-biz</name>
+    <description>通用公共域实现（含 Keycloak 管理接口客户端；BAS-09 起填充字典与参数）</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-common-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+    </dependencies>
+</project>

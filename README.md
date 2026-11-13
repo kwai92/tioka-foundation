@@ -15,8 +15,8 @@ Tioka Foundation —— 企业级「Java 工程化底座 + 通用企业中台」
 | `foundation-it-example` | 示例工程：验证「只引父工程即可编译」 | BAS-23 |
 | `foundation-starter-*` | 九类 starter（core/web/security/data/mq/cache/observability/audit/client） | BAS-24 |
 | `foundation-test` | Testcontainers 容器基座 + ArchUnit 规则集 | BAS-24 |
-| `foundation-server` | 装配应用（各 `-biz` 的装配与门面） | BAS-01 |
-| `foundation-common-api` / `foundation-common-biz` | 通用公共域（字典、参数、审计、消息、文件…） | BAS-01 / BAS-09 |
+| `foundation-server` | 装配应用（Spring Boot 入口、运行配置、Flyway 迁移） | BAS-01 |
+| `foundation-common/` | 通用公共域聚合器（下含 `-api` / `-biz`） | BAS-01 / BAS-09 |
 | `foundation-ui` | Vue 3 + Element Plus 管理台与门户 | BAS-FE |
 
 ## 2. 构建
@@ -25,9 +25,13 @@ Tioka Foundation —— 企业级「Java 工程化底座 + 通用企业中台」
 # 本机默认 JAVA_HOME 可能是 JDK 8，构建前切到 JDK 17
 export JAVA_HOME="C:/Program Files/Java/jdk-17"
 
-mvn -B clean verify          # 编译 + 单元测试
-mvn -B clean verify -Pgate   # 附加 GF 闸门用例（@Tag("gate") 的 *IT）
+mvn -B clean test            # 编译 + 单元测试（不起容器，最快）
+mvn -B clean verify          # 编译 + 单元测试 + 集成测试（*IT，需 Docker）
+mvn -B clean verify -DskipITs  # 同上但跳过集成测试
+mvn -B clean verify -Pgate   # GF 闸门用例（@Tag("gate") 的 *IT，需 Docker）
 ```
+
+集成与闸门用例基于 `foundation-test` 的单例容器（PostgreSQL 16 / Redis 7 / RocketMQ 懒启动 / Keycloak 24），首次运行需拉取镜像。
 
 ## 3. 版本与发布
 
@@ -45,5 +49,5 @@ mvn -B clean verify -Pgate   # 附加 GF 闸门用例（@Tag("gate") 的 *IT）
 ## 4. 迁移号段
 
 - Foundation 库自 **V1** 起，使用独立 Flyway 历史表，**不占用** Tioka 号段（Tioka 自 V220 起、F 阶段 V270+）；
-- 迁移脚本位于各应用的 `src/main/resources/db/migration`，命名 `V{n}__{desc}.sql`；
+- 迁移脚本位于 `foundation-server/src/main/resources/db/migration`（Foundation 库），命名 `V{n}__{desc}.sql`；
 - 每个工作项的号段在对应施工设计（[F-02](../docs/architecture/construction/F-02-工程底座与骨架.md) 起）中登记，冲突时以先合入的 PR 为准。
