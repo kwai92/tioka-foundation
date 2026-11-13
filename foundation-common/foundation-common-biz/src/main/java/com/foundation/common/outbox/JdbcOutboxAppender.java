@@ -2,6 +2,7 @@ package com.foundation.common.outbox;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.foundation.common.api.event.OutboxAppender;
 import com.foundation.common.id.CommonIdPrefix;
 import com.foundation.common.id.Ids;
 import org.springframework.jdbc.core.JdbcTemplate;

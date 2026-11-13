@@ -56,4 +56,10 @@ public class JdbcAppRepository implements AppRepository {
                         + "update_at = now(), update_by = ? WHERE id = ?",
                 app.name(), app.icon(), app.accessUrl(), app.ownerUserId(), app.status(), operator, app.id());
     }
+
+    @Override
+    public void updateManifestVersion(String id, long version, String operator) {
+        jdbc.update("UPDATE fdn_app SET manifest_version = ?, update_at = now(), update_by = ? WHERE id = ?",
+                version, operator, id);
+    }
 }

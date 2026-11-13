@@ -17,4 +17,7 @@ public interface AppRepository {
     void insert(App app, String operator);
 
     void update(App app, String operator);
+
+    /** 推进权限清单版本（BAS-05 清单导入成功后调用；版本只能前进）。 */
+    void updateManifestVersion(String id, long version, String operator);
 }

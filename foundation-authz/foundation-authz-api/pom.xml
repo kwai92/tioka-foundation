@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.foundation</groupId>
+        <artifactId>foundation-authz</artifactId>
+        <version>${revision}</version>
+    </parent>
+
+    <artifactId>foundation-authz-api</artifactId>
+    <name>foundation-authz-api</name>
+    <description>权限中心对外契约（F-05 BAS-05：清单导入、角色、授权）</description>
+</project>

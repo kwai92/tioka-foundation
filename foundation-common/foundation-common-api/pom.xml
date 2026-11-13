@@ -20,5 +20,10 @@
             <groupId>com.github.f4b6a3</groupId>
             <artifactId>ulid-creator</artifactId>
         </dependency>
+        <!-- 事件契约（OutboxAppender/EventProperties）：@ConfigurationProperties 绑定用 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot</artifactId>
+        </dependency>
     </dependencies>
 </project>

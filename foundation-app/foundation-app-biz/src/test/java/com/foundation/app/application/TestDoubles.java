@@ -50,6 +50,13 @@ final class TestDoubles {
         public void update(App app, String operator) {
             byId.put(app.id(), app);
         }
+
+        @Override
+        public void updateManifestVersion(String id, long version, String operator) {
+            App app = byId.get(id);
+            byId.put(id, new App(app.id(), app.code(), app.name(), app.icon(), app.accessUrl(), app.kind(),
+                    app.ownerUserId(), app.status(), version));
+        }
     }
 
     static final class InMemoryAppClientRepository implements AppClientRepository {

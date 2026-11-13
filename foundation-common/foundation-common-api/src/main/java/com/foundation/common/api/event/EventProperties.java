@@ -1,4 +1,4 @@
-package com.foundation.common.outbox;
+package com.foundation.common.api.event;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 

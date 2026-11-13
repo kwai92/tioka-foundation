@@ -2,7 +2,9 @@ package com.foundation.app.config;
 
 import com.foundation.app.api.AppApi;
 import com.foundation.app.api.AppClientApi;
+import com.foundation.app.api.AppManifestVersionApi;
 import com.foundation.app.api.ServiceAccountApi;
+import com.foundation.app.application.AppManifestVersionService;
 import com.foundation.app.application.AppRegistrar;
 import com.foundation.app.application.ClientSecretRotator;
 import com.foundation.app.application.ServiceAccountService;
@@ -57,6 +59,12 @@ public class FoundationAppAutoConfiguration {
     @ConditionalOnMissingBean
     public AppApi appApi(AppRepository apps, AppClientRepository clients, KeycloakOidcClientAdmin keycloak) {
         return new AppRegistrar(apps, clients, keycloak);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public AppManifestVersionApi appManifestVersionApi(AppRepository apps) {
+        return new AppManifestVersionService(apps);
     }
 
     @Bean

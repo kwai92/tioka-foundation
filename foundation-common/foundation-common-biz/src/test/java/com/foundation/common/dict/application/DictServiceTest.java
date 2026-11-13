@@ -11,8 +11,8 @@ import com.foundation.common.dict.domain.DictItem;
 import com.foundation.common.dict.domain.DictType;
 import com.foundation.common.dict.infrastructure.DictItemRepository;
 import com.foundation.common.dict.infrastructure.DictTypeRepository;
-import com.foundation.common.outbox.EventProperties;
-import com.foundation.common.outbox.OutboxAppender;
+import com.foundation.common.api.event.EventProperties;
+import com.foundation.common.api.event.OutboxAppender;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;

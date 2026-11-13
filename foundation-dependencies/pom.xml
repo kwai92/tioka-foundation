@@ -69,12 +69,27 @@
             </dependency>
             <dependency>
                 <groupId>com.foundation</groupId>
+                <artifactId>foundation-starter-data</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.foundation</groupId>
                 <artifactId>foundation-app-api</artifactId>
                 <version>${revision}</version>
             </dependency>
             <dependency>
                 <groupId>com.foundation</groupId>
                 <artifactId>foundation-app-biz</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.foundation</groupId>
+                <artifactId>foundation-authz-api</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.foundation</groupId>
+                <artifactId>foundation-authz-biz</artifactId>
                 <version>${revision}</version>
             </dependency>
             <!-- 测试基座：不进生产依赖（F-00 §5 约定） -->

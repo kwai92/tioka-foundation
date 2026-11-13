@@ -14,8 +14,8 @@ import com.foundation.common.dict.infrastructure.DictItemRepository;
 import com.foundation.common.dict.infrastructure.DictTypeRepository;
 import com.foundation.common.id.CommonIdPrefix;
 import com.foundation.common.id.Ids;
-import com.foundation.common.outbox.EventProperties;
-import com.foundation.common.outbox.OutboxAppender;
+import com.foundation.common.api.event.EventProperties;
+import com.foundation.common.api.event.OutboxAppender;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
