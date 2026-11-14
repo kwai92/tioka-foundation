@@ -9,6 +9,8 @@ import com.foundation.account.application.AccountPushService;
 import com.foundation.account.application.AccountReconcileJob;
 import com.foundation.account.application.ExternalIdentityApiAdapter;
 import com.foundation.account.application.ExternalIdentityApplicationService;
+import com.foundation.account.application.HandoverService;
+import com.foundation.account.application.OffboardingApplicationService;
 import com.foundation.account.application.ServiceAccountApplicationService;
 import com.foundation.account.infrastructure.AccountEventOutbox;
 import com.foundation.account.infrastructure.AccountPushRepository;
@@ -17,20 +19,24 @@ import com.foundation.account.infrastructure.AccountReconcileRepository;
 import com.foundation.account.infrastructure.AccountRepository;
 import com.foundation.account.infrastructure.EmergencyEnableStore;
 import com.foundation.account.infrastructure.ExternalIdentityRepository;
+import com.foundation.account.infrastructure.HandoverTodoRepository;
 import com.foundation.account.infrastructure.MybatisAccountPushRepository;
 import com.foundation.account.infrastructure.MybatisAccountReconcileRepository;
 import com.foundation.account.infrastructure.MybatisAccountRepository;
 import com.foundation.account.infrastructure.MybatisExternalIdentityRepository;
+import com.foundation.account.infrastructure.MybatisHandoverTodoRepository;
 import com.foundation.account.infrastructure.mapper.AccountMapper;
 import com.foundation.account.infrastructure.mapper.AccountPushMapper;
 import com.foundation.account.infrastructure.mapper.AccountReconcileMapper;
 import com.foundation.account.infrastructure.mapper.ExternalIdentityMapper;
+import com.foundation.account.infrastructure.mapper.HandoverTodoMapper;
 import com.foundation.app.api.AppApi;
 import com.foundation.app.api.ServiceAccountApi;
 import com.foundation.common.api.event.EventProperties;
 import com.foundation.common.api.event.OutboxAppender;
 import com.foundation.common.api.keycloak.KeycloakUserAdmin;
 import com.foundation.org.api.PersonApi;
+import com.foundation.org.api.PersonLifecycleApi;
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
@@ -61,7 +67,7 @@ import java.time.Duration;
         "com.foundation.common.config.CommonAutoConfiguration"})
 @ConditionalOnBean({SqlSessionFactory.class, OutboxAppender.class, EventProperties.class,
         KeycloakUserAdmin.class, StringRedisTemplate.class})
-@EnableConfigurationProperties(AccountProperties.class)
+@EnableConfigurationProperties({AccountProperties.class, OffboardingProperties.class})
 @EnableScheduling
 public class AccountAutoConfiguration {
 
@@ -89,6 +95,12 @@ public class AccountAutoConfiguration {
     @ConditionalOnMissingBean
     public ExternalIdentityRepository externalIdentityRepository(ExternalIdentityMapper mapper) {
         return new MybatisExternalIdentityRepository(mapper);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public HandoverTodoRepository handoverTodoRepository(HandoverTodoMapper mapper) {
+        return new MybatisHandoverTodoRepository(mapper);
     }
 
     // ---------- 事件与外部依赖适配 ----------
@@ -148,6 +160,26 @@ public class AccountAutoConfiguration {
                                                                             ServiceAccountApi serviceAccounts,
                                                                             AccountPushService pushService) {
         return new ServiceAccountApplicationService(accounts, persons, apps, serviceAccounts, pushService);
+    }
+
+    // ---------- 停用与离职联动（BAS-14） ----------
+
+    @Bean
+    @ConditionalOnMissingBean
+    public HandoverService handoverService(HandoverTodoRepository todos, AppApi apps,
+                                           ServiceAccountApi serviceAccounts, PersonApi persons,
+                                           OffboardingProperties properties) {
+        return new HandoverService(todos, apps, serviceAccounts, persons, properties);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public OffboardingApplicationService offboardingApplicationService(AccountApplicationService accounts,
+                                                                      PersonApi persons,
+                                                                      PersonLifecycleApi lifecycle,
+                                                                      HandoverService handovers,
+                                                                      OffboardingProperties properties) {
+        return new OffboardingApplicationService(persons, lifecycle, accounts, handovers, properties);
     }
 
     @Bean

@@ -18,6 +18,9 @@ public final class AccountIdPrefix {
     /** 应急管理员启用申请（Redis 一次性凭据，F-04 §7 双人确认第一步）。 */
     public static final String EMERGENCY_REQUEST = "emr";
 
+    /** 交接待办（{@code fdn_handover_todo}，F-04 BAS-14 §1 第 3 步）。 */
+    public static final String HANDOVER_TODO = "hdo";
+
     private AccountIdPrefix() {
     }
 }

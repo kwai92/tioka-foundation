@@ -151,6 +151,21 @@ public class AccountApplicationService {
         revokeSessionsInternal(disabled);
     }
 
+    /**
+     * 停用账号但不吊销会话（离职链 {@code foundation.offboarding.revoke-on-disable=false} 时使用）。
+     *
+     * <p>与 {@link #disable(String, String)} 的差别仅在于不吊销会话、不发 {@code fdn.account.sessions_revoked}。
+     */
+    @Transactional
+    public void disableWithoutRevokingSessions(String accountId, String operator) {
+        Account account = requireAccount(accountId);
+        if (!AccountRules.canDisable(account.status())) {
+            return;
+        }
+        accounts.update(account.withStatus(AccountStatus.DISABLED));
+        pushService.push(accountId, PushAction.SET_ENABLED, Map.of("enabled", false));
+    }
+
     /** 重新开通账号（F-04 §7 {@code PUT /api/accounts/{id}/enable}）。 */
     @Transactional
     public void enable(String accountId, String operator) {

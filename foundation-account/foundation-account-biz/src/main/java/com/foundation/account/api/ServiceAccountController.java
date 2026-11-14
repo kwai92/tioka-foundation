@@ -1,7 +1,9 @@
 package com.foundation.account.api;
 
 import com.foundation.account.api.dto.AccountView;
+import com.foundation.account.api.dto.HandoverView;
 import com.foundation.account.api.dto.ServiceAccountCreateCmd;
+import com.foundation.account.application.HandoverService;
 import com.foundation.account.application.ServiceAccountApplicationService;
 import com.foundation.starter.security.permission.RequirePermission;
 import com.foundation.starter.security.principal.Principal;
@@ -21,16 +23,19 @@ import java.util.List;
 
 /**
  * 服务账号 REST（F-04 §3、§7）：账号主体在 {@code fdn_account}（{@code type=SERVICE}），
- * 应用绑定、权限码白名单与 {@code client_credentials} 客户端由 BAS-04 维护。
+ * 应用绑定、权限码白名单与 {@code client_credentials} 客户端由 BAS-04 维护；
+ * 交接待办见 BAS-14（{@link HandoverService}）。
  */
 @RestController
 @RequestMapping("/api/fdn/service-accounts")
 public class ServiceAccountController {
 
     private final ServiceAccountApplicationService serviceAccounts;
+    private final HandoverService handovers;
 
-    public ServiceAccountController(ServiceAccountApplicationService serviceAccounts) {
+    public ServiceAccountController(ServiceAccountApplicationService serviceAccounts, HandoverService handovers) {
         this.serviceAccounts = serviceAccounts;
+        this.handovers = handovers;
     }
 
     /** 服务账号列表；{@code appCode} 为空表示全部。 */
@@ -64,6 +69,20 @@ public class ServiceAccountController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void enable(@PathVariable String id) {
         serviceAccounts.enable(id, operator());
+    }
+
+    /** 交接待办队列（F-04 BAS-14 §4）；{@code ownerPersonId} 为空表示全部人员。 */
+    @GetMapping("/handover")
+    @RequirePermission("fdn:serviceaccount:admin")
+    public List<HandoverView> handoverQueue(@RequestParam(required = false) String ownerPersonId) {
+        return handovers.list(ownerPersonId);
+    }
+
+    /** 指定新负责人（F-04 BAS-14 §4）；{@code id} 为服务账号主体（{@code acc_…}）。 */
+    @PostMapping("/{id}/handover")
+    @RequirePermission("fdn:serviceaccount:admin")
+    public HandoverView handover(@PathVariable String id, @RequestParam String newOwnerPersonId) {
+        return handovers.handover(id, newOwnerPersonId, operator());
     }
 
     /** 当前操作人（审计用）；无登录身份时（内部任务）回退为 {@code system}。 */
