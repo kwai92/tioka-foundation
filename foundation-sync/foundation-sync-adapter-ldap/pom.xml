@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.foundation</groupId>
+        <artifactId>foundation-sync</artifactId>
+        <version>${revision}</version>
+    </parent>
+
+    <artifactId>foundation-sync-adapter-ldap</artifactId>
+    <name>foundation-sync-adapter-ldap</name>
+    <description>LDAP / AD 同步适配器（F-08 BAS-12）：实现 BAS-11 的 SyncSourceAdapter SPI，复用同步引擎</description>
+
+    <dependencies>
+        <!-- ADR-078 第 8 条：适配器只依赖 SPI 与 -api 契约，不依赖中台 -biz -->
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-sync-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-common-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
+        </dependency>
+        <!-- 单元测试 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

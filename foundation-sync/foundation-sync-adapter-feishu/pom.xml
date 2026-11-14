@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.foundation</groupId>
+        <artifactId>foundation-sync</artifactId>
+        <version>${revision}</version>
+    </parent>
+
+    <artifactId>foundation-sync-adapter-feishu</artifactId>
+    <name>foundation-sync-adapter-feishu</name>
+    <description>飞书通讯录同步适配器（F-08 BAS-12）：实现 BAS-11 的 SyncSourceAdapter SPI，复用同步引擎</description>
+
+    <dependencies>
+        <!-- ADR-078 第 8 条：适配器只依赖 SPI 与 -api 契约，不依赖中台 -biz -->
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-sync-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-common-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-json</artifactId>
+        </dependency>
+        <!-- 出网：飞书取 tenant_access_token 与通讯录分页要求 POST/GET（FND-07 白名单出网随 FND-07 接入） -->
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+        </dependency>
+        <!-- 单元测试 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!--
+          字段映射与「本地已锁定字段不覆盖」由 BAS-11 引擎实现（FieldMapper / LocalLockResolver 在 -biz domain）；
+          仅测试范围引用，用于验证适配器产出与引擎映射/锁定的口径一致，主构件不依赖 -biz。
+        -->
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-sync-biz</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

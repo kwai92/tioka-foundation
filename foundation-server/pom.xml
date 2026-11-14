@@ -40,6 +40,15 @@
             <groupId>com.foundation</groupId>
             <artifactId>foundation-sync-biz</artifactId>
         </dependency>
+        <!-- 内置同步适配器（F-08 BAS-12）：飞书通讯录、LDAP/AD；经 BAS-11 同步接口登记与触发，不自建 REST -->
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-sync-adapter-feishu</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-sync-adapter-ldap</artifactId>
+        </dependency>
         <!-- 持久化装配（MyBatis-Plus + 审计填充 + MapperScan） -->
         <dependency>
             <groupId>com.foundation</groupId>

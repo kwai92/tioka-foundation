@@ -19,5 +19,7 @@
     <modules>
         <module>foundation-sync-api</module>
         <module>foundation-sync-biz</module>
+        <module>foundation-sync-adapter-feishu</module>
+        <module>foundation-sync-adapter-ldap</module>
     </modules>
 </project>

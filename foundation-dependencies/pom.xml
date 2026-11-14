@@ -157,6 +157,16 @@
             </dependency>
             <dependency>
                 <groupId>com.foundation</groupId>
+                <artifactId>foundation-sync-adapter-feishu</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.foundation</groupId>
+                <artifactId>foundation-sync-adapter-ldap</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.foundation</groupId>
                 <artifactId>foundation-account-api</artifactId>
                 <version>${revision}</version>
             </dependency>
