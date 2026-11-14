@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.foundation</groupId>
+        <artifactId>foundation-parent</artifactId>
+        <version>${revision}</version>
+        <relativePath>../foundation-parent/pom.xml</relativePath>
+    </parent>
+
+    <artifactId>foundation-calendar</artifactId>
+    <packaging>pom</packaging>
+    <name>foundation-calendar</name>
+    <description>工作日历（F-09 BAS-18 §18.1：节假日与调休、区域日历、工作日推算）——聚合器</description>
+
+    <modules>
+        <module>foundation-calendar-api</module>
+        <module>foundation-calendar-biz</module>
+    </modules>
+</project>

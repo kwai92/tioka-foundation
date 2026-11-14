@@ -2,6 +2,8 @@ package com.foundation.starter.client.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.foundation.starter.client.cache.TtlCache;
+import com.foundation.starter.client.calendar.CalendarClient;
+import com.foundation.starter.client.calendar.HttpCalendarClient;
 import com.foundation.starter.client.dict.DictClient;
 import com.foundation.starter.client.dict.DictItem;
 import com.foundation.starter.client.dict.HttpDictClient;
@@ -18,6 +20,8 @@ import com.foundation.starter.client.org.Person;
 import com.foundation.starter.client.org.PersonClient;
 import com.foundation.starter.client.param.HttpParamClient;
 import com.foundation.starter.client.param.ParamClient;
+import com.foundation.starter.client.sequence.HttpSequenceClient;
+import com.foundation.starter.client.sequence.SequenceClient;
 import com.foundation.starter.core.config.FoundationProperties;
 import com.foundation.starter.core.http.BearerTokenSupplier;
 import okhttp3.OkHttpClient;
@@ -127,5 +131,19 @@ public class FoundationClientAutoConfiguration {
     @ConditionalOnMissingBean
     public FileClient fileClient(FoundationHttpClient http) {
         return new HttpFileClient(http);
+    }
+
+    // ---------- F-09 §18 工作日历与编号 ----------
+
+    @Bean
+    @ConditionalOnMissingBean
+    public CalendarClient calendarClient(FoundationHttpClient http) {
+        return new HttpCalendarClient(http);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public SequenceClient sequenceClient(FoundationHttpClient http) {
+        return new HttpSequenceClient(http);
     }
 }

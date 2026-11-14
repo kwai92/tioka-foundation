@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.foundation</groupId>
+        <artifactId>foundation-sequence</artifactId>
+        <version>${revision}</version>
+    </parent>
+
+    <artifactId>foundation-sequence-api</artifactId>
+    <name>foundation-sequence-api</name>
+    <description>编号与序列对外契约（F-09 BAS-18 §18.2：规则命令与视图、取号请求与结果）</description>
+</project>

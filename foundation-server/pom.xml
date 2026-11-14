@@ -42,6 +42,14 @@
         </dependency>
         <dependency>
             <groupId>com.foundation</groupId>
+            <artifactId>foundation-calendar-biz</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-sequence-biz</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.foundation</groupId>
             <artifactId>foundation-sync-biz</artifactId>
         </dependency>
         <!-- 内置同步适配器（F-08 BAS-12）：飞书通讯录、LDAP/AD；经 BAS-11 同步接口登记与触发，不自建 REST -->

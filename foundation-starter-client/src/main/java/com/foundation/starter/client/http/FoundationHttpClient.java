@@ -1,5 +1,6 @@
 package com.foundation.starter.client.http;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.foundation.starter.core.context.RequestContext;
@@ -117,6 +118,39 @@ public class FoundationHttpClient {
         form.addFormDataPart(fieldName, fileName,
                 RequestBody.create(content == null ? new byte[0] : content, partType));
         Request.Builder builder = authorized(new Request.Builder().url(baseUrl + path)).post(form.build());
+        try {
+            JsonNode node = parse(send(builder, path));
+            circuitBreaker.recordSuccess();
+            return node;
+        } catch (RuntimeException ex) {
+            circuitBreaker.recordFailure();
+            throw ex;
+        }
+    }
+
+    /**
+     * JSON POST（写接口，**非幂等**，不带重试；幂等性由业务头保证，如 {@code Idempotency-Key}）。
+     *
+     * @param path    相对路径
+     * @param body    请求体（序列化为 JSON；{@code null} 视为空对象）
+     * @param headers 附加请求头（可空）
+     * @return 响应 JSON；空响应返回 {@code null}
+     */
+    public JsonNode postJson(String path, Object body, Map<String, String> headers) {
+        if (!circuitBreaker.allow()) {
+            throw new IllegalStateException("Foundation 客户端熔断中：" + path);
+        }
+        RequestBody requestBody;
+        try {
+            byte[] bytes = objectMapper.writeValueAsBytes(body == null ? Map.of() : body);
+            requestBody = RequestBody.create(bytes, MediaType.parse("application/json; charset=utf-8"));
+        } catch (JsonProcessingException ex) {
+            throw new IllegalStateException("序列化请求体失败：" + ex.getMessage(), ex);
+        }
+        Request.Builder builder = authorized(new Request.Builder().url(baseUrl + path)).post(requestBody);
+        if (headers != null) {
+            headers.forEach(builder::header);
+        }
         try {
             JsonNode node = parse(send(builder, path));
             circuitBreaker.recordSuccess();
