@@ -15,6 +15,9 @@ public interface PersonRepository {
 
     Optional<Person> findByEmpNo(String empNo);
 
+    /** 按邮箱查重哈希取人员（外部身份按已验证邮箱自动关联用，F-04 §2）。 */
+    Optional<Person> findByEmailHash(String hash);
+
     Optional<Person> findBySourceExternalId(String source, String externalId);
 
     List<Person> findByIds(Collection<String> ids);

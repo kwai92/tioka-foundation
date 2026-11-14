@@ -19,6 +19,9 @@ public interface PersonApi {
     /** 按工号取人员。 */
     Optional<PersonView> findByEmpNo(String empNo);
 
+    /** 按邮箱（明文）取人员；外部身份按已验证邮箱自动关联用（F-04 §2）。 */
+    Optional<PersonView> findByEmail(String email);
+
     /**
      * 组织单元下的任职人员 ID 集合。
      *

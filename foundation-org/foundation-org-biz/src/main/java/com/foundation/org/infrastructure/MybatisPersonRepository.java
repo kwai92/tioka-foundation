@@ -34,6 +34,16 @@ public class MybatisPersonRepository implements PersonRepository {
     }
 
     @Override
+    public Optional<Person> findByEmailHash(String hash) {
+        if (hash == null || hash.isBlank()) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(mapper.selectOne(
+                Wrappers.<PersonDO>lambdaQuery().eq(PersonDO::getEmailHash, hash)))
+                .map(MybatisPersonRepository::toDomain);
+    }
+
+    @Override
     public Optional<Person> findBySourceExternalId(String source, String externalId) {
         return Optional.ofNullable(mapper.selectOne(Wrappers.<PersonDO>lambdaQuery()
                 .eq(PersonDO::getSource, source)

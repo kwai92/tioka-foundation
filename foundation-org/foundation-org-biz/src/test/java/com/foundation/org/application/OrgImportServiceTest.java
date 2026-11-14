@@ -354,6 +354,11 @@ class OrgImportServiceTest {
         }
 
         @Override
+        public Optional<Person> findByEmailHash(String hash) {
+            return byId.values().stream().filter(person -> Objects.equals(person.emailHash(), hash)).findFirst();
+        }
+
+        @Override
         public Optional<Person> findBySourceExternalId(String source, String externalId) {
             return Optional.empty();
         }

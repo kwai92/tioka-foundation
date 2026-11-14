@@ -125,6 +125,16 @@
                 <artifactId>foundation-org-biz</artifactId>
                 <version>${revision}</version>
             </dependency>
+            <dependency>
+                <groupId>com.foundation</groupId>
+                <artifactId>foundation-account-api</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.foundation</groupId>
+                <artifactId>foundation-account-biz</artifactId>
+                <version>${revision}</version>
+            </dependency>
             <!-- 测试基座：不进生产依赖（F-00 §5 约定） -->
             <dependency>
                 <groupId>com.foundation</groupId>

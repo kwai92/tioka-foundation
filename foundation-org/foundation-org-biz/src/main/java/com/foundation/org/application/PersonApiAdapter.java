@@ -47,6 +47,15 @@ public class PersonApiAdapter implements PersonApi {
     }
 
     @Override
+    public Optional<PersonView> findByEmail(String email) {
+        String hash = cipher.hash(email);
+        if (hash == null) {
+            return Optional.empty();
+        }
+        return persons.findByEmailHash(hash).map(this::plainView);
+    }
+
+    @Override
     public Set<String> personsInOrgUnit(String orgUnitId, boolean includeSubUnits) {
         if (orgUnitId == null) {
             return Set.of();
