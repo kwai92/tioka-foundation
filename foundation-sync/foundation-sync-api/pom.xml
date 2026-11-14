@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.foundation</groupId>
+        <artifactId>foundation-sync</artifactId>
+        <version>${revision}</version>
+    </parent>
+
+    <artifactId>foundation-sync-api</artifactId>
+    <name>foundation-sync-api</name>
+    <description>同步来源 SPI 与对外契约（F-08 BAS-11：适配器 SPI、管理台接口 DTO、同步事件）</description>
+</project>

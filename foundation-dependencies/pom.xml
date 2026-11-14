@@ -147,6 +147,16 @@
             </dependency>
             <dependency>
                 <groupId>com.foundation</groupId>
+                <artifactId>foundation-sync-api</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.foundation</groupId>
+                <artifactId>foundation-sync-biz</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.foundation</groupId>
                 <artifactId>foundation-account-api</artifactId>
                 <version>${revision}</version>
             </dependency>

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.foundation</groupId>
+        <artifactId>foundation-parent</artifactId>
+        <version>${revision}</version>
+        <relativePath>../foundation-parent/pom.xml</relativePath>
+    </parent>
+
+    <artifactId>foundation-sync</artifactId>
+    <packaging>pom</packaging>
+    <name>foundation-sync</name>
+    <description>组织与账号同步（F-08 BAS-11：来源 SPI、同步引擎、差异预演、删除保护、幂等合并、本地字段锁定）——聚合器</description>
+
+    <modules>
+        <module>foundation-sync-api</module>
+        <module>foundation-sync-biz</module>
+    </modules>
+</project>

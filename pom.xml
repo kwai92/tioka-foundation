@@ -25,6 +25,7 @@
         <module>foundation-audit</module>
         <module>foundation-notify</module>
         <module>foundation-org</module>
+        <module>foundation-sync</module>
         <module>foundation-account</module>
         <module>foundation-test</module>
         <module>foundation-server</module>
