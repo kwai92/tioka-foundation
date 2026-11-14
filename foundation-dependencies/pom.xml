@@ -137,6 +137,16 @@
             </dependency>
             <dependency>
                 <groupId>com.foundation</groupId>
+                <artifactId>foundation-file-api</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.foundation</groupId>
+                <artifactId>foundation-file-biz</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.foundation</groupId>
                 <artifactId>foundation-org-api</artifactId>
                 <version>${revision}</version>
             </dependency>

@@ -8,6 +8,8 @@ import com.foundation.starter.client.dict.HttpDictClient;
 import com.foundation.starter.client.http.CircuitBreaker;
 import com.foundation.starter.client.http.FoundationHttpClient;
 import com.foundation.starter.client.http.ServiceAccountTokenProvider;
+import com.foundation.starter.client.file.FileClient;
+import com.foundation.starter.client.file.HttpFileClient;
 import com.foundation.starter.client.org.HttpOrgClient;
 import com.foundation.starter.client.org.HttpPersonClient;
 import com.foundation.starter.client.org.OrgClient;
@@ -117,5 +119,13 @@ public class FoundationClientAutoConfiguration {
         return new HttpPersonClient(http,
                 new TtlCache<String, Person>(ttl),
                 new TtlCache<String, List<Person>>(ttl));
+    }
+
+    // ---------- §10 文件 ----------
+
+    @Bean
+    @ConditionalOnMissingBean
+    public FileClient fileClient(FoundationHttpClient http) {
+        return new HttpFileClient(http);
     }
 }

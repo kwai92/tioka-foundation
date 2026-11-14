@@ -4,14 +4,18 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.foundation.starter.core.context.RequestContext;
 import com.foundation.starter.core.http.BearerTokenSupplier;
+import okhttp3.MediaType;
+import okhttp3.MultipartBody;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
+import okhttp3.RequestBody;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -73,6 +77,71 @@ public class FoundationHttpClient {
         throw last == null ? new IllegalStateException("调用 Foundation 失败：" + path) : last;
     }
 
+    /** 原始字节 GET（流式下载用，不解析 JSON）。 */
+    public byte[] getBytes(String path) {
+        if (!circuitBreaker.allow()) {
+            throw new IllegalStateException("Foundation 客户端熔断中：" + path);
+        }
+        Request.Builder builder = authorized(new Request.Builder().url(baseUrl + path).get());
+        try (Response response = http.newCall(builder.build()).execute()) {
+            if (!response.isSuccessful()) {
+                throw new IllegalStateException("调用 Foundation 失败：HTTP " + response.code() + " " + path);
+            }
+            ResponseBody body = response.body();
+            byte[] bytes = body == null ? new byte[0] : body.bytes();
+            circuitBreaker.recordSuccess();
+            return bytes;
+        } catch (IOException ex) {
+            circuitBreaker.recordFailure();
+            throw new IllegalStateException("调用 Foundation 失败：" + path + "（" + ex.getMessage() + "）", ex);
+        }
+    }
+
+    /**
+     * {@code multipart/form-data} 上传（写接口，**非幂等**，不带重试）；返回响应 JSON。
+     *
+     * @param fieldName 文件字段名（如 {@code file}）
+     * @param fields    附带表单字段（可空）
+     */
+    public JsonNode postMultipart(String path, String fieldName, String fileName, String contentType,
+                                  byte[] content, Map<String, String> fields) {
+        if (!circuitBreaker.allow()) {
+            throw new IllegalStateException("Foundation 客户端熔断中：" + path);
+        }
+        MultipartBody.Builder form = new MultipartBody.Builder().setType(MultipartBody.FORM);
+        if (fields != null) {
+            fields.forEach(form::addFormDataPart);
+        }
+        MediaType partType = MediaType.parse(contentType == null || contentType.isBlank()
+                ? "application/octet-stream" : contentType);
+        form.addFormDataPart(fieldName, fileName,
+                RequestBody.create(content == null ? new byte[0] : content, partType));
+        Request.Builder builder = authorized(new Request.Builder().url(baseUrl + path)).post(form.build());
+        try {
+            JsonNode node = parse(send(builder, path));
+            circuitBreaker.recordSuccess();
+            return node;
+        } catch (RuntimeException ex) {
+            circuitBreaker.recordFailure();
+            throw ex;
+        }
+    }
+
+    /** DELETE（写接口，**非幂等**，不带重试）。 */
+    public void delete(String path) {
+        if (!circuitBreaker.allow()) {
+            throw new IllegalStateException("Foundation 客户端熔断中：" + path);
+        }
+        Request.Builder builder = authorized(new Request.Builder().url(baseUrl + path)).delete();
+        try {
+            send(builder, path);
+            circuitBreaker.recordSuccess();
+        } catch (RuntimeException ex) {
+            circuitBreaker.recordFailure();
+            throw ex;
+        }
+    }
+
     private JsonNode parse(String body) {
         if (body == null || body.isBlank()) {
             return null;
@@ -94,6 +163,32 @@ public class FoundationHttpClient {
             builder.header("request_id", traceId);
             builder.header("traceparent", "00-" + traceId + "-0000000000000000-01");
         });
+        try (Response response = http.newCall(builder.build()).execute()) {
+            if (!response.isSuccessful()) {
+                throw new IllegalStateException("调用 Foundation 失败：HTTP " + response.code() + " " + path);
+            }
+            ResponseBody body = response.body();
+            return body == null ? null : body.string();
+        } catch (IOException ex) {
+            throw new IllegalStateException("调用 Foundation 失败：" + path + "（" + ex.getMessage() + "）", ex);
+        }
+    }
+
+    /** 附加认证与 trace 透传头。 */
+    private Request.Builder authorized(Request.Builder builder) {
+        String token = tokenSupplier == null ? null : tokenSupplier.bearerToken();
+        if (token != null && !token.isBlank()) {
+            builder.header("Authorization", "Bearer " + token);
+        }
+        RequestContext.traceId().ifPresent(traceId -> {
+            builder.header("request_id", traceId);
+            builder.header("traceparent", "00-" + traceId + "-0000000000000000-01");
+        });
+        return builder;
+    }
+
+    /** 执行请求并取响应体文本；非 2xx 抛 {@link IllegalStateException}。 */
+    private String send(Request.Builder builder, String path) {
         try (Response response = http.newCall(builder.build()).execute()) {
             if (!response.isSuccessful()) {
                 throw new IllegalStateException("调用 Foundation 失败：HTTP " + response.code() + " " + path);
