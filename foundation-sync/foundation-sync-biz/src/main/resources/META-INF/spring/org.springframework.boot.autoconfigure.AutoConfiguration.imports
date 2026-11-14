@@ -1,1 +1,2 @@
 com.foundation.sync.config.SyncAutoConfiguration
+com.foundation.sync.scim.config.ScimAutoConfiguration
