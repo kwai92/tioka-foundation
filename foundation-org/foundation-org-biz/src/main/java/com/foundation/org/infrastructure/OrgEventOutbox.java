@@ -41,7 +41,16 @@ public class OrgEventOutbox {
 
     /** {@code fdn.person.disabled}：人员停用、离职、数字员工下岗。 */
     public void personDisabled(String personId, long version) {
-        publish(PersonDisabledEvent.EVENT_TYPE, PersonDisabledEvent.payload(personId, version));
+        personDisabled(personId, version, PersonDisabledEvent.CHANGE_DISABLED);
+    }
+
+    /**
+     * {@code fdn.person.disabled}：指定变化类型。
+     *
+     * @param changeType {@code DISABLED}（停用 / 下岗）或 {@code LEFT}（离职，F-04 BAS-14）
+     */
+    public void personDisabled(String personId, long version, String changeType) {
+        publish(PersonDisabledEvent.EVENT_TYPE, PersonDisabledEvent.payload(personId, version, changeType));
     }
 
     private void publish(String eventType, OrgEventPayload payload) {

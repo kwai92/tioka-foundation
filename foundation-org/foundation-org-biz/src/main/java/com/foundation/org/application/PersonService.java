@@ -16,6 +16,7 @@ import com.foundation.org.api.dto.PersonType;
 import com.foundation.org.api.dto.PersonUpdateCmd;
 import com.foundation.org.api.dto.PersonView;
 import com.foundation.org.api.dto.ReportLineCmd;
+import com.foundation.org.api.event.PersonDisabledEvent;
 import com.foundation.org.domain.DigitalEmployeeRule;
 import com.foundation.org.domain.Employment;
 import com.foundation.org.domain.EmploymentRule;
@@ -147,6 +148,28 @@ public class PersonService {
         changeLog.append(ChangeEntityType.PERSON, id, ChangeAction.DISABLE, summary(current), summary(disabled),
                 ChangeSource.MANUAL, null);
         events.personDisabled(id, version);
+    }
+
+    /**
+     * 离职（F-04 BAS-14）：状态置 {@code LEFT}、写变更日志，发 {@code fdn.person.disabled}
+     * （{@code changeType=LEFT}）。
+     *
+     * <p>幂等：已是 {@code LEFT} 时不再变更、不重复发事件；消费端仍按事件 ID 去重。
+     */
+    @Transactional
+    public void offboard(String id, String operator) {
+        Person current = requirePerson(id);
+        if (current.status() == PersonStatus.LEFT) {
+            return;
+        }
+        long version = current.version() + 1;
+        Person left = new Person(id, current.empNo(), current.name(), current.type(), PersonStatus.LEFT,
+                current.mobileCipher(), current.emailCipher(), current.mobileHash(), current.emailHash(),
+                current.source(), current.externalId(), version);
+        persons.update(left);
+        changeLog.append(ChangeEntityType.PERSON, id, ChangeAction.DISABLE, summary(current), summary(left),
+                ChangeSource.MANUAL, operator);
+        events.personDisabled(id, version, PersonDisabledEvent.CHANGE_LEFT);
     }
 
     /**

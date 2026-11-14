@@ -5,6 +5,7 @@ import com.foundation.common.api.event.EventProperties;
 import com.foundation.common.api.event.OutboxAppender;
 import com.foundation.org.api.OrgApi;
 import com.foundation.org.api.PersonApi;
+import com.foundation.org.api.PersonLifecycleApi;
 import com.foundation.org.application.EmploymentService;
 import com.foundation.org.application.JobGradeService;
 import com.foundation.org.application.OrgApiAdapter;
@@ -12,6 +13,7 @@ import com.foundation.org.application.OrgExportService;
 import com.foundation.org.application.OrgImportService;
 import com.foundation.org.application.OrgUnitService;
 import com.foundation.org.application.PersonApiAdapter;
+import com.foundation.org.application.PersonLifecycleApiAdapter;
 import com.foundation.org.application.PersonService;
 import com.foundation.org.application.PositionService;
 import com.foundation.org.domain.DigitalEmployeeRule;
@@ -227,5 +229,11 @@ public class OrgAutoConfiguration {
                                ReportLineRepository reportLines, OrgUnitRepository orgUnits,
                                PersonCipher cipher) {
         return new PersonApiAdapter(persons, employments, reportLines, orgUnits, cipher);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public PersonLifecycleApi personLifecycleApi(PersonService persons) {
+        return new PersonLifecycleApiAdapter(persons);
     }
 }
