@@ -32,6 +32,10 @@
             <groupId>com.foundation</groupId>
             <artifactId>foundation-notify-biz</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-audit-biz</artifactId>
+        </dependency>
         <!-- 持久化装配（MyBatis-Plus + 审计填充 + MapperScan） -->
         <dependency>
             <groupId>com.foundation</groupId>

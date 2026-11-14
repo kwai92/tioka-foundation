@@ -113,6 +113,26 @@ public class AccountApplicationService {
                 .map(AccountReconcileRecord::toView).toList();
     }
 
+    /**
+     * 回填最近登录时间（BAS-10 登录事件采集）。
+     *
+     * <p>按登录名查账号；不存在时静默返回。只有新时刻晚于既有 {@code lastLoginAt} 时才落库，
+     * 不递增行版本（登录回填不是业务状态变更）。
+     */
+    @Transactional
+    public void recordLogin(String loginName, Instant at) {
+        if (loginName == null || loginName.isBlank() || at == null) {
+            return;
+        }
+        accounts.findByLoginName(loginName).ifPresent(account -> {
+            if (account.lastLoginAt() == null || at.isAfter(account.lastLoginAt())) {
+                Account updated = new Account(account.id(), account.loginName(), account.personId(),
+                        account.keycloakUserId(), account.status(), account.type(), at, account.version());
+                accounts.update(updated);
+            }
+        });
+    }
+
     /** 开通个人账号并推送 Keycloak，返回账号 ID（F-04 §7 {@code POST /api/accounts}）。 */
     @Transactional
     public String createPersonal(AccountCreateCmd cmd) {

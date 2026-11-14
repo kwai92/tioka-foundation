@@ -11,6 +11,7 @@ import com.foundation.account.api.dto.EmergencyEnableTicket;
 import com.foundation.account.api.dto.PageResult;
 import com.foundation.account.api.dto.ServiceAccountCreateCmd;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -80,4 +81,7 @@ public interface AccountApi {
 
     /** 最近的每日对账记录（F-04 §6）。 */
     List<AccountReconcileView> recentReconciles(int limit);
+
+    /** 回填最近登录时间（BAS-10 登录事件采集）；登录名不存在时静默返回。 */
+    void recordLogin(String loginName, Instant at);
 }

@@ -12,6 +12,7 @@ import com.foundation.account.api.dto.EmergencyEnableTicket;
 import com.foundation.account.api.dto.PageResult;
 import com.foundation.account.api.dto.ServiceAccountCreateCmd;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -128,5 +129,10 @@ public class AccountApiAdapter implements AccountApi {
     @Override
     public List<AccountReconcileView> recentReconciles(int limit) {
         return accounts.recentReconciles(limit);
+    }
+
+    @Override
+    public void recordLogin(String loginName, Instant at) {
+        accounts.recordLogin(loginName, at);
     }
 }

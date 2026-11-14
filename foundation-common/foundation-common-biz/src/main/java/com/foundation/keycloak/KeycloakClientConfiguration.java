@@ -1,6 +1,7 @@
 package com.foundation.keycloak;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.foundation.common.api.keycloak.KeycloakLoginEventAdmin;
 import com.foundation.common.api.keycloak.KeycloakOidcClientAdmin;
 import com.foundation.common.api.keycloak.KeycloakUserAdmin;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -33,5 +34,12 @@ public class KeycloakClientConfiguration {
     public KeycloakUserAdmin keycloakUserAdmin(KeycloakProperties properties,
                                                KeycloakAdminClient adminClient, ObjectMapper json) {
         return new KeycloakUserAdminImpl(properties, adminClient, json);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public KeycloakLoginEventAdmin keycloakLoginEventAdmin(KeycloakProperties properties,
+                                                          KeycloakAdminClient adminClient, ObjectMapper json) {
+        return new KeycloakLoginEventAdminImpl(properties, adminClient, json);
     }
 }
