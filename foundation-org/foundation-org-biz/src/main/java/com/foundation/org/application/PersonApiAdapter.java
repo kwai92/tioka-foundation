@@ -10,8 +10,10 @@ import com.foundation.org.infrastructure.PersonRepository;
 import com.foundation.org.infrastructure.ReportLineRepository;
 import com.foundation.org.infrastructure.person.PersonCipher;
 
+import java.util.LinkedHashSet;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * {@link PersonApi} 只读契约实现（F-03 §5）：供 BAS-05 权限、BAS-06 数据范围等模块依赖。
@@ -72,6 +74,11 @@ public class PersonApiAdapter implements PersonApi {
     @Override
     public Optional<String> managerId(String personId) {
         return reportLines.managerOf(personId);
+    }
+
+    @Override
+    public Set<String> allPersonIds() {
+        return persons.findAll().stream().map(Person::id).collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     private PersonView plainView(Person person) {

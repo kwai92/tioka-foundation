@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.foundation</groupId>
+        <artifactId>foundation-parent</artifactId>
+        <version>${revision}</version>
+        <relativePath>../foundation-parent/pom.xml</relativePath>
+    </parent>
+
+    <artifactId>foundation-notify</artifactId>
+    <packaging>pom</packaging>
+    <name>foundation-notify</name>
+    <description>消息中心（F-09 BAS-16：站内信、待办、公告、渠道与未读数）——聚合器</description>
+
+    <modules>
+        <module>foundation-notify-api</module>
+        <module>foundation-notify-biz</module>
+    </modules>
+</project>

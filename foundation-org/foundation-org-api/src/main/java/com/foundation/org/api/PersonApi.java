@@ -35,4 +35,11 @@ public interface PersonApi {
 
     /** 人员直属上级人员 ID，未维护时为空。 */
     Optional<String> managerId(String personId);
+
+    /**
+     * 全部人员 ID 集合（公告按 {@code GLOBAL} 范围展开收件人用，F-09 BAS-16）。
+     *
+     * <p>只读、按需调用；不返回脱敏信息。
+     */
+    Set<String> allPersonIds();
 }
