@@ -3,6 +3,7 @@ package com.foundation.authz.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.foundation.app.api.AppApi;
 import com.foundation.app.api.AppManifestVersionApi;
+import com.foundation.audit.api.AuditApi;
 import com.foundation.authz.api.DataDimensionApi;
 import com.foundation.authz.api.DataScopeApi;
 import com.foundation.authz.api.DirectoryApi;
@@ -10,6 +11,8 @@ import com.foundation.authz.api.DirectoryController;
 import com.foundation.authz.api.FeatureToggleApi;
 import com.foundation.authz.api.FeatureToggleController;
 import com.foundation.authz.api.GrantApi;
+import com.foundation.authz.api.HighRiskReviewApi;
+import com.foundation.authz.api.HighRiskReviewController;
 import com.foundation.authz.api.ManifestApi;
 import com.foundation.authz.api.MenuApi;
 import com.foundation.authz.api.OrgAdminScopeApi;
@@ -21,6 +24,7 @@ import com.foundation.authz.api.SnapshotApi;
 import com.foundation.authz.api.SubsystemApi;
 import com.foundation.authz.api.SubsystemController;
 import com.foundation.authz.application.AppIdResolver;
+import com.foundation.authz.application.AuthzAuditWriter;
 import com.foundation.authz.application.AuthorizationQueryService;
 import com.foundation.authz.application.DataDimensionAppService;
 import com.foundation.authz.application.DataScopeAppService;
@@ -28,6 +32,7 @@ import com.foundation.authz.application.DimensionValueSyncService;
 import com.foundation.authz.application.EffectiveRoleResolver;
 import com.foundation.authz.application.FeatureToggleGate;
 import com.foundation.authz.application.FeatureToggleService;
+import com.foundation.authz.application.HighRiskGrantReviewService;
 import com.foundation.authz.application.ManifestDiffCalculator;
 import com.foundation.authz.application.ManifestImporter;
 import com.foundation.authz.application.MenuService;
@@ -35,6 +40,7 @@ import com.foundation.authz.application.OrgAdminScopeService;
 import com.foundation.authz.application.PermissionCodeCatalogService;
 import com.foundation.authz.application.RoleGrantService;
 import com.foundation.authz.application.RoleMutexChecker;
+import com.foundation.authz.application.RoleMutexGuard;
 import com.foundation.authz.application.RoleService;
 import com.foundation.authz.application.SelfManagedImporter;
 import com.foundation.authz.application.SnapshotAppService;
@@ -50,6 +56,7 @@ import com.foundation.authz.infrastructure.DataDimensionRepository;
 import com.foundation.authz.infrastructure.DimensionValueRepository;
 import com.foundation.authz.infrastructure.FeatureToggleRepository;
 import com.foundation.authz.infrastructure.FunctionRepository;
+import com.foundation.authz.infrastructure.HighRiskReviewRepository;
 import com.foundation.authz.infrastructure.MenuRepository;
 import com.foundation.authz.infrastructure.ModuleRepository;
 import com.foundation.authz.infrastructure.MybatisAppManifestRepository;
@@ -57,6 +64,7 @@ import com.foundation.authz.infrastructure.MybatisDataDimensionRepository;
 import com.foundation.authz.infrastructure.MybatisDimensionValueRepository;
 import com.foundation.authz.infrastructure.MybatisFeatureToggleRepository;
 import com.foundation.authz.infrastructure.MybatisFunctionRepository;
+import com.foundation.authz.infrastructure.MybatisHighRiskReviewRepository;
 import com.foundation.authz.infrastructure.MybatisMenuRepository;
 import com.foundation.authz.infrastructure.MybatisModuleRepository;
 import com.foundation.authz.infrastructure.MybatisOrgAdminScopeRepository;
@@ -88,6 +96,7 @@ import com.foundation.authz.infrastructure.mapper.DataDimensionMapper;
 import com.foundation.authz.infrastructure.mapper.DimensionValueMapper;
 import com.foundation.authz.infrastructure.mapper.FeatureToggleMapper;
 import com.foundation.authz.infrastructure.mapper.FunctionMapper;
+import com.foundation.authz.infrastructure.mapper.HighRiskReviewMapper;
 import com.foundation.authz.infrastructure.mapper.MenuMapper;
 import com.foundation.authz.infrastructure.mapper.ModuleMapper;
 import com.foundation.authz.infrastructure.mapper.OrgAdminScopeMapper;
@@ -105,6 +114,7 @@ import com.foundation.authz.infrastructure.mapper.SubsystemMapper;
 import com.foundation.common.api.event.EventProperties;
 import com.foundation.common.api.event.OutboxAppender;
 import org.apache.ibatis.session.SqlSessionFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -127,7 +137,8 @@ import org.springframework.context.annotation.Bean;
         "com.foundation.common.config.CommonAutoConfiguration",
         "com.foundation.app.config.FoundationAppAutoConfiguration"})
 @ConditionalOnBean({SqlSessionFactory.class, AppApi.class, AppManifestVersionApi.class})
-@EnableConfigurationProperties({AuthzProperties.class, SubsystemProperties.class})
+@EnableConfigurationProperties({AuthzProperties.class, SubsystemProperties.class,
+        SeparationProperties.class})
 public class AuthzAutoConfiguration {
 
     @Bean
@@ -253,9 +264,9 @@ public class AuthzAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public GrantApi grantApi(RoleGrantRepository grants, RoleMutexRepository mutexes, RoleRepository roles,
-                             EffectiveRoleResolver resolver, RoleMutexChecker mutexChecker) {
-        return new RoleGrantService(grants, mutexes, roles, resolver, mutexChecker);
+    public GrantApi grantApi(RoleGrantRepository grants, RoleRepository roles, EffectiveRoleResolver resolver,
+                             RoleMutexGuard mutexGuard, HighRiskGrantReviewService reviews) {
+        return new RoleGrantService(grants, roles, resolver, mutexGuard, reviews);
     }
 
     @Bean
@@ -477,5 +488,49 @@ public class AuthzAutoConfiguration {
     @ConditionalOnMissingBean
     public OrgAdminScopeController orgAdminScopeController(OrgAdminScopeApi scopes) {
         return new OrgAdminScopeController(scopes);
+    }
+
+    // ---------- BAS-19 三员分立与高风险授权复核 ----------
+
+    @Bean
+    @ConditionalOnMissingBean
+    public HighRiskReviewRepository highRiskReviewRepository(HighRiskReviewMapper mapper) {
+        return new MybatisHighRiskReviewRepository(mapper);
+    }
+
+    /** 鉴权审计写入：{@link AuditApi} 可选（审计模块未装配时静默跳过）。 */
+    @Bean
+    @ConditionalOnMissingBean
+    public AuthzAuditWriter authzAuditWriter(ObjectProvider<AuditApi> audit) {
+        return new AuthzAuditWriter(audit);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public RoleMutexGuard roleMutexGuard(RoleMutexRepository mutexes, RoleMutexChecker checker,
+                                         SeparationProperties properties, AuthzAuditWriter audit) {
+        return new RoleMutexGuard(mutexes, checker, properties, audit);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public HighRiskGrantReviewService highRiskGrantReviewService(HighRiskReviewRepository reviews,
+                                                                 RoleGrantRepository grants,
+                                                                 PermissionCodeRepository permissionCodes,
+                                                                 SeparationProperties properties,
+                                                                 AuthzAuditWriter audit) {
+        return new HighRiskGrantReviewService(reviews, grants, permissionCodes, properties, audit);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(HighRiskReviewApi.class)
+    public HighRiskReviewApi highRiskReviewApi(HighRiskGrantReviewService service) {
+        return service;
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public HighRiskReviewController highRiskReviewController(HighRiskReviewApi reviews) {
+        return new HighRiskReviewController(reviews);
     }
 }

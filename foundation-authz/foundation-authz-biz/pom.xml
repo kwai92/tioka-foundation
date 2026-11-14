@@ -34,6 +34,11 @@
             <groupId>com.foundation</groupId>
             <artifactId>foundation-starter-security</artifactId>
         </dependency>
+        <!-- 鉴权审计写入（BAS-19：互斥拒绝 / 高风险复核流转汇聚到 BAS-10 审计表） -->
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-audit-api</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>

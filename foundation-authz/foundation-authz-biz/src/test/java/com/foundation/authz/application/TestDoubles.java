@@ -5,6 +5,11 @@ import com.foundation.app.api.AppManifestVersionApi;
 import com.foundation.app.api.AppRegistrationCmd;
 import com.foundation.app.api.AppUpdateCmd;
 import com.foundation.app.api.AppView;
+import com.foundation.audit.api.AuditApi;
+import com.foundation.audit.api.AuditPageView;
+import com.foundation.audit.api.AuditQuery;
+import com.foundation.audit.api.AuditReportItem;
+import com.foundation.audit.api.AuditView;
 import com.foundation.authz.api.DataScopeApi;
 import com.foundation.authz.api.DataScopeView;
 import com.foundation.authz.api.FeatureToggleApi;
@@ -21,11 +26,13 @@ import com.foundation.authz.domain.DimensionValue;
 import com.foundation.authz.domain.FeatureToggle;
 import com.foundation.authz.domain.GrantSource;
 import com.foundation.authz.domain.GrantSubjectType;
+import com.foundation.authz.domain.HighRiskReview;
 import com.foundation.authz.domain.LifecycleStatus;
 import com.foundation.authz.domain.Menu;
 import com.foundation.authz.domain.OrgAdminScope;
 import com.foundation.authz.domain.PermissionCode;
 import com.foundation.authz.domain.PersonDimensionGrant;
+import com.foundation.authz.domain.ReviewStatus;
 import com.foundation.authz.domain.Role;
 import com.foundation.authz.domain.RoleDataScope;
 import com.foundation.authz.domain.RoleDimensionValue;
@@ -43,6 +50,7 @@ import com.foundation.authz.infrastructure.DataDimensionRepository;
 import com.foundation.authz.infrastructure.DimensionValueRepository;
 import com.foundation.authz.infrastructure.FeatureToggleRepository;
 import com.foundation.authz.infrastructure.FunctionRepository;
+import com.foundation.authz.infrastructure.HighRiskReviewRepository;
 import com.foundation.authz.infrastructure.MenuRepository;
 import com.foundation.authz.infrastructure.ModuleRepository;
 import com.foundation.authz.infrastructure.OrgAdminScopeRepository;
@@ -57,6 +65,9 @@ import com.foundation.authz.infrastructure.SelfManagedImportRepository;
 import com.foundation.authz.infrastructure.SnapshotRepository;
 import com.foundation.authz.infrastructure.SubsystemRepository;
 import com.foundation.common.api.event.OutboxAppender;
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.NoSuchBeanDefinitionException;
+import org.springframework.beans.factory.ObjectProvider;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -809,6 +820,93 @@ final class TestDoubles {
         @Override
         public List<SelfManagedImportItem> items(String batchId) {
             return items.values().stream().filter(item -> item.batchId().equals(batchId)).toList();
+        }
+    }
+
+    // ---------- BAS-19 三员分立与高风险授权复核 ----------
+
+    /** 构造仅回一个实例（或空）的 {@link ObjectProvider}，用于替代 Spring 容器注入。 */
+    static <T> ObjectProvider<T> provider(T instance) {
+        return new ObjectProvider<>() {
+            @Override
+            public T getObject() throws BeansException {
+                if (instance == null) {
+                    throw new NoSuchBeanDefinitionException("no bean available");
+                }
+                return instance;
+            }
+
+            @Override
+            public T getObject(Object... args) throws BeansException {
+                return getObject();
+            }
+
+            @Override
+            public T getIfAvailable() {
+                return instance;
+            }
+
+            @Override
+            public T getIfUnique() {
+                return instance;
+            }
+        };
+    }
+
+    /** 审计桩：记录全部上报条目（供断言审计动作码）。 */
+    static final class StubAuditApi implements AuditApi {
+
+        final List<AuditReportItem> reported = new ArrayList<>();
+
+        List<String> actions() {
+            return reported.stream().map(AuditReportItem::action).toList();
+        }
+
+        @Override
+        public int report(String idempotencyKey, List<AuditReportItem> events) {
+            reported.addAll(events);
+            return events.size();
+        }
+
+        @Override
+        public AuditPageView query(AuditQuery query, Set<String> appScope) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public List<AuditView> export(AuditQuery query, Set<String> appScope, String operatorId) {
+            throw new UnsupportedOperationException();
+        }
+    }
+
+    /** 高风险授权复核内存仓储。 */
+    static final class InMemoryHighRiskReviewRepository implements HighRiskReviewRepository {
+
+        final Map<String, HighRiskReview> byId = new LinkedHashMap<>();
+
+        @Override
+        public void insert(HighRiskReview review) {
+            byId.put(review.id(), review);
+        }
+
+        @Override
+        public Optional<HighRiskReview> find(String id) {
+            return Optional.ofNullable(byId.get(id));
+        }
+
+        @Override
+        public void updateDecision(HighRiskReview review) {
+            byId.put(review.id(), review);
+        }
+
+        @Override
+        public List<HighRiskReview> page(ReviewStatus status, Instant cursorTs, String cursorId, int size) {
+            return byId.values().stream()
+                    .filter(review -> status == null || review.status() == status)
+                    .sorted(Comparator.comparing(HighRiskReview::createAt).reversed()
+                            .thenComparing(HighRiskReview::id, Comparator.reverseOrder()))
+                    .limit(size)
+                    .toList();
         }
     }
 }

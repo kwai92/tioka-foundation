@@ -2,6 +2,7 @@ package com.foundation.authz.application;
 
 import com.foundation.authz.api.RoleGrantCmd;
 import com.foundation.authz.api.RoleGrantView;
+import com.foundation.authz.config.SeparationProperties;
 import com.foundation.authz.domain.GrantSource;
 import com.foundation.authz.domain.GrantSubjectType;
 import com.foundation.authz.domain.Role;
@@ -31,6 +32,14 @@ class RoleGrantServiceTest {
     private final TestDoubles.StubSubjectMembership membership = new TestDoubles.StubSubjectMembership();
     private final RoleMutexChecker mutexChecker = new RoleMutexChecker();
 
+    private final SeparationProperties separation = new SeparationProperties();
+    private final TestDoubles.StubAuditApi audit = new TestDoubles.StubAuditApi();
+    private final AuthzAuditWriter auditWriter = new AuthzAuditWriter(TestDoubles.provider(audit));
+    private final RoleMutexGuard mutexGuard = new RoleMutexGuard(mutexes, mutexChecker, separation, auditWriter);
+    private final HighRiskGrantReviewService reviews = new HighRiskGrantReviewService(
+            new TestDoubles.InMemoryHighRiskReviewRepository(), grants,
+            new TestDoubles.InMemoryPermissionCodeRepository(), separation, auditWriter);
+
     private RoleGrantService service;
 
     @BeforeEach
@@ -38,7 +47,7 @@ class RoleGrantServiceTest {
         apps.register("app_a", "app_a");
         EffectiveRoleResolver resolver = new EffectiveRoleResolver(grants, mutexes, roles,
                 membership, new AppIdResolver(apps), mutexChecker);
-        service = new RoleGrantService(grants, mutexes, roles, resolver, mutexChecker);
+        service = new RoleGrantService(grants, roles, resolver, mutexGuard, reviews);
     }
 
     @Test

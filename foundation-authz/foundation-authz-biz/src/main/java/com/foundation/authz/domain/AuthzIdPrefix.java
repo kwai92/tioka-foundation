@@ -36,6 +36,9 @@ public final class AuthzIdPrefix {
     /** 自管一次性导入明细项。 */
     public static final String SELF_IMPORT_ITEM = "mpi";
 
+    /** 高风险授权复核（F-09 BAS-19，{@code fdn_high_risk_review}）。 */
+    public static final String HIGH_RISK_REVIEW = "hrr";
+
     private AuthzIdPrefix() {
     }
 }
