@@ -22,25 +22,29 @@ public class AuthorizationQueryService {
     private final RoleRepository roles;
     private final PermissionCodeRepository permissions;
     private final AppIdResolver appIds;
+    private final FeatureToggleGate toggles;
 
     public AuthorizationQueryService(EffectiveRoleResolver resolver, RoleRepository roles,
-                                     PermissionCodeRepository permissions, AppIdResolver appIds) {
+                                     PermissionCodeRepository permissions, AppIdResolver appIds,
+                                     FeatureToggleGate toggles) {
         this.resolver = resolver;
         this.roles = roles;
         this.permissions = permissions;
         this.appIds = appIds;
+        this.toggles = toggles;
     }
 
-    /** 人员在指定应用、指定时刻可用的权限码集合。 */
+    /** 人员在指定应用、指定时刻可用的权限码集合（已剔除功能开关停用范围内的权限码）。 */
     public Set<String> permissionCodes(String personId, String appCode, Instant at) {
         Optional<String> appId = appIds.resolve(appCode);
-        Set<String> available = appId.map(id -> activeCodes(id)).orElse(null);
 
         Set<String> result = new LinkedHashSet<>();
         for (String roleCode : resolver.resolve(personId, appCode, at)) {
             roles.find(roleCode).ifPresent(role -> collect(role, result));
         }
-        if (available != null) {
+        if (appId.isPresent()) {
+            Set<String> available = activeCodes(appId.get());
+            available.removeAll(toggles.disabledPermissionCodes(appId.get()));
             result.retainAll(available);
         }
         return result;

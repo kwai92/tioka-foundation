@@ -35,16 +35,18 @@ public class SnapshotAssembler {
     private final DataScopeApi dataScopes;
     private final SubjectMembership membership;
     private final AppIdResolver appIds;
+    private final FeatureToggleGate toggles;
 
     public SnapshotAssembler(EffectiveRoleResolver effectiveRoles, AuthorizationQueryService authorizations,
                              MenuRepository menus, DataScopeApi dataScopes, SubjectMembership membership,
-                             AppIdResolver appIds) {
+                             AppIdResolver appIds, FeatureToggleGate toggles) {
         this.effectiveRoles = effectiveRoles;
         this.authorizations = authorizations;
         this.menus = menus;
         this.dataScopes = dataScopes;
         this.membership = membership;
         this.appIds = appIds;
+        this.toggles = toggles;
     }
 
     /** 计算某人员在某应用、指定版本号的快照。 */
@@ -59,13 +61,15 @@ public class SnapshotAssembler {
                 toScope(scope.deptScope()), toDimensions(scope.dimensions()), personOf(personId), at);
     }
 
-    /** 可见菜单树：在线且（无权限码或权限码已授权）；上级不可见时该节点上提为根。 */
+    /** 可见菜单树：在线、未被功能开关停用，且（无权限码或权限码已授权）；上级不可见时该节点上提为根。 */
     private List<SnapshotMenu> menuTree(String appId, Set<String> permissions) {
         if (appId == null) {
             return List.of();
         }
+        Set<String> disabled = toggles.disabledMenuIds(appId);
         List<Menu> visible = menus.listByApp(appId).stream()
                 .filter(menu -> LifecycleStatus.ACTIVE.equals(menu.status()))
+                .filter(menu -> !disabled.contains(menu.id()))
                 .filter(menu -> visibleByPermission(menu, permissions))
                 .toList();
 

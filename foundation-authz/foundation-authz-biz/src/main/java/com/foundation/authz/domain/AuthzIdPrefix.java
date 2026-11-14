@@ -21,6 +21,21 @@ public final class AuthzIdPrefix {
     /** 授权快照（{@code fdn_authz_snapshot}）。 */
     public static final String SNAPSHOT = "fsn";
 
+    /** 子系统（F-05 §BAS-27）。 */
+    public static final String SUBSYSTEM = "sub";
+    /** 模块。 */
+    public static final String MODULE = "mod";
+    /** 功能。 */
+    public static final String FUNCTION = "fun";
+    /** 功能开关。 */
+    public static final String TOGGLE = "tog";
+    /** 组织分级管理员范围。 */
+    public static final String ORG_ADMIN_SCOPE = "sco";
+    /** 自管一次性导入批次。 */
+    public static final String SELF_IMPORT = "mpx";
+    /** 自管一次性导入明细项。 */
+    public static final String SELF_IMPORT_ITEM = "mpi";
+
     private AuthzIdPrefix() {
     }
 }

@@ -29,9 +29,19 @@
             <groupId>com.foundation</groupId>
             <artifactId>foundation-app-api</artifactId>
         </dependency>
+        <!-- 权限注解与当前用户（@RequirePermission / PrincipalHolder） -->
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-starter-security</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>
+        </dependency>
+        <!-- REST 层：子系统/目录/功能开关/分级管理员 Controller -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
         <!-- 持久化：48-CS §4「ORM 仅 MyBatis-Plus」，统一经 starter 装配（含 BaseDO 审计基类） -->
         <dependency>

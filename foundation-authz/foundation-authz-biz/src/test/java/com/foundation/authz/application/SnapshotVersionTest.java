@@ -56,10 +56,13 @@ class SnapshotVersionTest {
         AppIdResolver appIds = new AppIdResolver(apps);
         EffectiveRoleResolver effectiveRoles = new EffectiveRoleResolver(grants, mutexes, roles, membership,
                 appIds, new RoleMutexChecker());
+        FeatureToggleGate toggles = new FeatureToggleGate(new TestDoubles.StubFeatureToggleApi(),
+                new TestDoubles.InMemorySubsystemRepository(), new TestDoubles.InMemoryModuleRepository(),
+                new TestDoubles.InMemoryFunctionRepository(), menus);
         AuthorizationQueryService authorizations = new AuthorizationQueryService(effectiveRoles, roles,
-                permissionCodes, appIds);
+                permissionCodes, appIds, toggles);
         SnapshotAssembler assembler = new SnapshotAssembler(effectiveRoles, authorizations, menus, dataScopes,
-                membership, appIds);
+                membership, appIds, toggles);
 
         AuthzChangedEventPublisher publisher = new AuthzChangedEventPublisher(outbox, new EventProperties());
         recomputeService = new SnapshotRecomputeService(snapshots, assembler, publisher,
