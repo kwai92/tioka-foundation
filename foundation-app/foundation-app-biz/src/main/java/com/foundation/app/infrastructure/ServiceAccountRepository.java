@@ -19,6 +19,9 @@ public interface ServiceAccountRepository {
 
     void updateStatus(String id, String status, String operator);
 
+    /** 换负责人（F-04 BAS-14 交接待办）。 */
+    void updateOwner(String id, String ownerUserId, String operator);
+
     /** 把到期仍为 {@code ACTIVE} 的服务账号置 {@code DISABLED}，返回处理条数。 */
     int disableExpired(Instant now);
 }

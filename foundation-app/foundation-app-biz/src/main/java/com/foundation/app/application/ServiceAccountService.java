@@ -79,6 +79,17 @@ public class ServiceAccountService implements ServiceAccountApi {
         return accounts.disableExpired(now);
     }
 
+    @Override
+    @Transactional
+    public void transferOwner(String serviceAccountId, String newOwnerPersonId, String operator) {
+        if (newOwnerPersonId == null || newOwnerPersonId.isBlank()) {
+            throw new BizException(ErrorCode.BAD_REQUEST, "新负责人必填");
+        }
+        ServiceAccount account = accounts.findById(serviceAccountId)
+                .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "服务账号不存在：" + serviceAccountId));
+        accounts.updateOwner(account.id(), newOwnerPersonId, operator(operator));
+    }
+
     private App requireApp(String appCode) {
         return apps.find(appCode)
                 .orElseThrow(() -> new BizException(ErrorCode.NOT_FOUND, "应用不存在：" + appCode));

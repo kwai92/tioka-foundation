@@ -22,6 +22,9 @@ public interface ServiceAccountApi {
     /** 停用服务账号（{@code status=DISABLED}），其客户端同时停用。 */
     void disable(String serviceAccountId, String operator);
 
+    /** 移交给新负责人（F-04 BAS-14 交接待办：{@code POST /api/service-accounts/{id}/handover}）。 */
+    void transferOwner(String serviceAccountId, String newOwnerPersonId, String operator);
+
     /** 过期时间已到且仍为 {@code ACTIVE} 的服务账号拉平为 {@code DISABLED}，返回处理条数。 */
     int disableExpired(Instant now);
 }

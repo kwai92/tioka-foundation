@@ -73,6 +73,12 @@ public class JdbcServiceAccountRepository implements ServiceAccountRepository {
     }
 
     @Override
+    public void updateOwner(String id, String ownerUserId, String operator) {
+        jdbc.update("UPDATE fdn_service_account SET owner_user_id = ?, update_at = now(), update_by = ? "
+                + "WHERE id = ?", ownerUserId, operator, id);
+    }
+
+    @Override
     public int disableExpired(Instant now) {
         return jdbc.update("UPDATE fdn_service_account SET status = 'DISABLED', update_at = now() "
                 + "WHERE status = 'ACTIVE' AND expires_at IS NOT NULL AND expires_at <= ?", Timestamp.from(now));

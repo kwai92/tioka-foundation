@@ -133,6 +133,14 @@ final class TestDoubles {
         }
 
         @Override
+        public void updateOwner(String id, String ownerUserId, String operator) {
+            ServiceAccount account = byId.get(id);
+            byId.put(id, new ServiceAccount(account.id(), account.accountId(), account.appId(),
+                    account.clientId(), account.name(), account.permissionCodes(), ownerUserId,
+                    account.status(), account.expiresAt()));
+        }
+
+        @Override
         public int disableExpired(Instant now) {
             List<String> expired = byId.values().stream()
                     .filter(account -> ServiceAccount.STATUS_ACTIVE.equals(account.status()))
