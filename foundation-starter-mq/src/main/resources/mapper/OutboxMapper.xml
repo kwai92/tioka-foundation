@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.foundation.starter.mq.outbox.OutboxMapper">
+
+    <resultMap id="outboxMap" type="com.foundation.starter.mq.outbox.OutboxDO">
+        <id column="id" property="id"/>
+        <result column="topic" property="topic"/>
+        <result column="event_type" property="eventType"/>
+        <result column="aggregate" property="aggregate"/>
+        <result column="payload" property="payload"/>
+        <result column="status" property="status"/>
+        <result column="retry_count" property="retryCount"/>
+        <result column="create_at" property="createAt"/>
+        <result column="sent_at" property="sentAt"/>
+    </resultMap>
+
+    <!-- PostgreSQL jsonb 列必须显式转型，不能依赖 setString -->
+    <insert id="insertOutbox">
+        INSERT INTO fdn_outbox (id, topic, event_type, aggregate, payload)
+        VALUES (#{id}, #{topic}, #{eventType}, #{aggregate}, CAST(#{payload} AS jsonb))
+    </insert>
+
+    <select id="selectPending" resultMap="outboxMap">
+        SELECT id, topic, event_type, aggregate, payload, status, retry_count, create_at, sent_at
+        FROM fdn_outbox
+        WHERE status = 'NEW'
+        ORDER BY create_at
+        LIMIT #{limit}
+    </select>
+
+    <update id="markSent">
+        UPDATE fdn_outbox
+        SET status = 'SENT', sent_at = now()
+        WHERE id = #{id}
+    </update>
+
+    <update id="markRetry">
+        UPDATE fdn_outbox
+        SET status = CASE WHEN #{dead} THEN 'DEAD' ELSE 'NEW' END,
+            retry_count = retry_count + 1,
+            sent_at = NULL
+        WHERE id = #{id}
+    </update>
+</mapper>

@@ -20,6 +20,10 @@
         <module>foundation-starter-security</module>
         <module>foundation-starter-audit</module>
         <module>foundation-starter-client</module>
+        <module>foundation-starter-web</module>
+        <module>foundation-starter-mq</module>
+        <module>foundation-starter-cache</module>
+        <module>foundation-starter-observability</module>
         <module>foundation-app</module>
         <module>foundation-authz</module>
         <module>foundation-audit</module>

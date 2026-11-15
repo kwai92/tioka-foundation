@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.foundation</groupId>
+        <artifactId>foundation-parent</artifactId>
+        <version>${revision}</version>
+        <relativePath>../foundation-parent/pom.xml</relativePath>
+    </parent>
+
+    <artifactId>foundation-starter-mq</artifactId>
+    <name>foundation-starter-mq</name>
+    <description>消息封装：领域事件、outbox 与中继、消费幂等、死信约定（F-02 BAS-24）</description>
+
+    <!-- 只依赖 foundation-starter-core（S15 §5.2 依赖约束） -->
+    <dependencies>
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-starter-core</artifactId>
+        </dependency>
+        <!-- RocketMQ 客户端；未引入时退化为日志投递（本地/单测可用） -->
+        <dependency>
+            <groupId>org.apache.rocketmq</groupId>
+            <artifactId>rocketmq-spring-boot-starter</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <!-- outbox / 消费幂等表按 48-CS §4 只用 MyBatis-Plus -->
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- MqOutboxIT：PostgreSQL 容器与轻装配 -->
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

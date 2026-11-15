@@ -34,5 +34,11 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- BAS-24：示例工程引用 ArchUnit 通用规则集（foundation-test），验证规则集自动生效与冻结库机制 -->
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-test</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 </project>

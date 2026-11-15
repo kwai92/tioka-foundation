@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.foundation.starter.mq.consumer.ConsumedMessageMapper">
+
+    <insert id="insertConsumed">
+        INSERT INTO fdn_consumed (consumer, message_id, consumed_at)
+        VALUES (#{consumer}, #{messageId}, now())
+        ON CONFLICT (consumer, message_id) DO NOTHING
+    </insert>
+
+    <delete id="deleteOlderThan">
+        DELETE FROM fdn_consumed
+        WHERE consumed_at &lt; now() - CAST(#{hours} AS int) * INTERVAL '1 hour'
+    </delete>
+</mapper>

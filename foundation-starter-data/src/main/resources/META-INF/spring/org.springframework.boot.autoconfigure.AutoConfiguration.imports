@@ -1,1 +1,2 @@
+com.foundation.starter.data.config.FoundationMigrationAutoConfiguration
 com.foundation.starter.data.config.FoundationDataAutoConfiguration
