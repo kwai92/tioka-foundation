@@ -16,4 +16,15 @@ public class AuthzProperties {
     public void setManifestOfflineRetentionDays(int manifestOfflineRetentionDays) {
         this.manifestOfflineRetentionDays = manifestOfflineRetentionDays;
     }
+
+    /** 平台自身应用编码（{@code /me} 未指定 {@code app} 时取该应用的快照）；默认对齐 V3 种子应用。 */
+    private String platformAppCode = "foundation";
+
+    public String getPlatformAppCode() {
+        return platformAppCode;
+    }
+
+    public void setPlatformAppCode(String platformAppCode) {
+        this.platformAppCode = platformAppCode;
+    }
 }

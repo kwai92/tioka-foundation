@@ -5,22 +5,31 @@ import com.foundation.app.api.AppApi;
 import com.foundation.app.api.AppManifestVersionApi;
 import com.foundation.audit.api.AuditApi;
 import com.foundation.authz.api.DataDimensionApi;
+import com.foundation.authz.api.DataDimensionController;
 import com.foundation.authz.api.DataScopeApi;
+import com.foundation.authz.api.DataScopeController;
 import com.foundation.authz.api.DirectoryApi;
 import com.foundation.authz.api.DirectoryController;
 import com.foundation.authz.api.FeatureToggleApi;
 import com.foundation.authz.api.FeatureToggleController;
 import com.foundation.authz.api.GrantApi;
+import com.foundation.authz.api.GrantController;
 import com.foundation.authz.api.HighRiskReviewApi;
 import com.foundation.authz.api.HighRiskReviewController;
 import com.foundation.authz.api.ManifestApi;
+import com.foundation.authz.api.ManifestController;
+import com.foundation.authz.api.MeController;
 import com.foundation.authz.api.MenuApi;
+import com.foundation.authz.api.MenuController;
 import com.foundation.authz.api.OrgAdminScopeApi;
 import com.foundation.authz.api.OrgAdminScopeController;
 import com.foundation.authz.api.PermissionApi;
+import com.foundation.authz.api.PermissionController;
 import com.foundation.authz.api.RoleApi;
+import com.foundation.authz.api.RoleController;
 import com.foundation.authz.api.SelfManagedImportApi;
 import com.foundation.authz.api.SnapshotApi;
+import com.foundation.authz.api.SnapshotController;
 import com.foundation.authz.api.SubsystemApi;
 import com.foundation.authz.api.SubsystemController;
 import com.foundation.authz.application.AppIdResolver;
@@ -38,6 +47,7 @@ import com.foundation.authz.application.ManifestImporter;
 import com.foundation.authz.application.MenuService;
 import com.foundation.authz.application.OrgAdminScopeService;
 import com.foundation.authz.application.PermissionCodeCatalogService;
+import com.foundation.authz.application.PermissionSubjectQueryService;
 import com.foundation.authz.application.RoleGrantService;
 import com.foundation.authz.application.RoleMutexChecker;
 import com.foundation.authz.application.RoleMutexGuard;
@@ -490,6 +500,64 @@ public class AuthzAutoConfiguration {
         return new OrgAdminScopeController(scopes);
     }
 
+    // ---------- BAS-05/06/07 REST 控制器 ----------
+    // 与上列 Bean 同生命周期注册：无持久化上下文（缺 SqlSessionFactory 等）时整块跳过。
+
+    @Bean
+    @ConditionalOnMissingBean
+    public ManifestController manifestController(ManifestApi manifests) {
+        return new ManifestController(manifests);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public MenuController menuController(MenuApi menus) {
+        return new MenuController(menus);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public PermissionController permissionController(PermissionApi permissions) {
+        return new PermissionController(permissions);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public RoleController roleController(RoleApi roles) {
+        return new RoleController(roles);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public GrantController grantController(GrantApi grants, PermissionSubjectQueryService permissionSubjects) {
+        return new GrantController(grants, permissionSubjects);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public DataDimensionController dataDimensionController(DataDimensionApi dimensions) {
+        return new DataDimensionController(dimensions);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public DataScopeController dataScopeController(DataScopeApi dataScopes,
+                                                   PermissionSubjectQueryService permissionSubjects) {
+        return new DataScopeController(dataScopes, permissionSubjects);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public SnapshotController snapshotController(SnapshotApi snapshots) {
+        return new SnapshotController(snapshots);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public MeController meController(SnapshotApi snapshots, AuthzProperties properties) {
+        return new MeController(snapshots, properties);
+    }
+
     // ---------- BAS-19 三员分立与高风险授权复核 ----------
 
     @Bean
@@ -532,5 +600,15 @@ public class AuthzAutoConfiguration {
     @ConditionalOnMissingBean
     public HighRiskReviewController highRiskReviewController(HighRiskReviewApi reviews) {
         return new HighRiskReviewController(reviews);
+    }
+
+    // ---------- 权限反查（谁有这个权限） ----------
+
+    @Bean
+    @ConditionalOnMissingBean
+    public PermissionSubjectQueryService permissionSubjectQueryService(
+            PermissionCodeRepository permissionCodes, RoleRepository roles, RoleGrantRepository grants,
+            AppIdResolver appIds, DataScopeApi dataScopes) {
+        return new PermissionSubjectQueryService(permissionCodes, roles, grants, appIds, dataScopes);
     }
 }
