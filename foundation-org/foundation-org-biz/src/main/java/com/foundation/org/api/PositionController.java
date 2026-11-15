@@ -14,11 +14,15 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.web.bind.annotation.RestController;
 
-/** 岗位 REST（F-03 §5）。 */
-@RestController
+/**
+ * 岗位 REST（F-03 §5）。
+ *
+ * <p>本类不标 {@code @RestController}：由 {@code OrgAutoConfiguration} 以 {@code @Bean} 装配。
+ */
+@ResponseBody
 @RequestMapping("/api/fdn/positions")
 @RequirePermission("org:write")
 public class PositionController {

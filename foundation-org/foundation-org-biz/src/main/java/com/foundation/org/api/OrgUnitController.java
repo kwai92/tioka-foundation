@@ -19,8 +19,8 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
@@ -28,8 +28,10 @@ import java.util.List;
  * 组织单元 REST（F-03 §5）：只做参数绑定与权限注解，业务在 {@link OrgUnitService}。
  *
  * <p>写接口的 {@code Idempotency-Key} 由 {@code foundation-starter-web}（BAS-24）统一处理。
+ *
+ * <p>本类不标 {@code @RestController}：由 {@code OrgAutoConfiguration} 以 {@code @Bean} 装配。
  */
-@RestController
+@ResponseBody
 @RequestMapping("/api/fdn/org")
 public class OrgUnitController {
 

@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -30,8 +30,10 @@ import java.io.UncheckedIOException;
  * <p>导入整表全量校验、任一行失败整体拒绝（不半量落库）；导出默认脱敏，明文由
  * {@code foundation.org.export.include-sensitive} 控制。写接口的 {@code Idempotency-Key}
  * 由 {@code foundation-starter-web}（BAS-24）统一处理。
+ *
+ * <p>本类不标 {@code @RestController}：由 {@code OrgAutoConfiguration} 以 {@code @Bean} 装配。
  */
-@RestController
+@ResponseBody
 @RequestMapping("/api/fdn/org")
 public class OrgImportController {
 

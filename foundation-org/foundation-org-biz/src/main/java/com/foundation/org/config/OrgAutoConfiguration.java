@@ -3,9 +3,15 @@ package com.foundation.org.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.foundation.common.api.event.EventProperties;
 import com.foundation.common.api.event.OutboxAppender;
+import com.foundation.org.api.EmploymentController;
+import com.foundation.org.api.JobGradeController;
 import com.foundation.org.api.OrgApi;
+import com.foundation.org.api.OrgImportController;
+import com.foundation.org.api.OrgUnitController;
 import com.foundation.org.api.PersonApi;
+import com.foundation.org.api.PersonController;
 import com.foundation.org.api.PersonLifecycleApi;
+import com.foundation.org.api.PositionController;
 import com.foundation.org.application.EmploymentService;
 import com.foundation.org.application.JobGradeService;
 import com.foundation.org.application.OrgApiAdapter;
@@ -42,7 +48,9 @@ import com.foundation.org.infrastructure.mapper.PositionMapper;
 import com.foundation.org.infrastructure.mapper.ReportLineMapper;
 import com.foundation.org.infrastructure.person.PersonCipher;
 import com.foundation.org.infrastructure.person.PersonMasker;
+import com.foundation.starter.security.snapshot.AuthzSnapshotClient;
 import org.apache.ibatis.session.SqlSessionFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -235,5 +243,44 @@ public class OrgAutoConfiguration {
     @ConditionalOnMissingBean
     public PersonLifecycleApi personLifecycleApi(PersonService persons) {
         return new PersonLifecycleApiAdapter(persons);
+    }
+
+    // ---------- REST 控制器 ----------
+    // 与上列 Bean 同生命周期注册：无持久化上下文时整块跳过，避免组件扫描出的控制器装配失败。
+
+    @Bean
+    @ConditionalOnMissingBean
+    public OrgUnitController orgUnitController(OrgUnitService orgUnits) {
+        return new OrgUnitController(orgUnits);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public PositionController positionController(PositionService positions) {
+        return new PositionController(positions);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public JobGradeController jobGradeController(JobGradeService jobGrades) {
+        return new JobGradeController(jobGrades);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public PersonController personController(PersonService persons, ObjectProvider<AuthzSnapshotClient> snapshots) {
+        return new PersonController(persons, snapshots);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public EmploymentController employmentController(EmploymentService employments) {
+        return new EmploymentController(employments);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public OrgImportController orgImportController(OrgImportService imports, OrgExportService exports) {
+        return new OrgImportController(imports, exports);
     }
 }

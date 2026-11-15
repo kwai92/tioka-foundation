@@ -12,13 +12,17 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/** 任职 REST（F-03 §5 {@code /api/fdn/persons/{id}/employments}）。 */
-@RestController
+/**
+ * 任职 REST（F-03 §5 {@code /api/fdn/persons/{id}/employments}）。
+ *
+ * <p>本类不标 {@code @RestController}：由 {@code OrgAutoConfiguration} 以 {@code @Bean} 装配。
+ */
+@ResponseBody
 @RequestMapping("/api/fdn/persons/{personId}/employments")
 @RequirePermission("org:person:write")
 public class EmploymentController {
