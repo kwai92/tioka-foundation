@@ -177,7 +177,8 @@ public final class FoundationArchRules {
     /** 规则 9：业务代码禁用 JdbcTemplate，ORM 仅 MyBatis-Plus。 */
     @ArchTest
     public static final ArchRule noJdbcTemplateInBusinessCode =
-            noClasses().should().dependOnClassesThat().resideInAPackage(SPRING_JDBC + "..")
+            noClasses().that().resideInAPackage(BASE_PACKAGE + "..")
+                    .should().dependOnClassesThat().resideInAPackage(SPRING_JDBC + "..")
                     .because("业务代码禁用 JdbcTemplate/spring-jdbc，ORM 仅 MyBatis-Plus（48-CS §4 / F-02 BAS-24）")
                     .allowEmptyShould(true);
 

@@ -8,7 +8,8 @@ import java.util.Map;
 /**
  * {@link OutboxAppender} 的 MyBatis-Plus 适配（F-02 BAS-24 §foundation-starter-mq）。
  *
- * <p>各领域 {@code -biz} 里现存的 {@code JdbcOutboxAppender} 可被本类替换（48-CS §4：ORM 仅 MyBatis-Plus）。
+ * <p>各领域 {@code -biz} 原有的 {@code JdbcOutboxAppender} 已由本类取代（48-CS §4：ORM 仅 MyBatis-Plus）；
+ * 公共域装配（{@code CommonAutoConfiguration}）以本类型暴露全上下文唯一的 {@link OutboxAppender} Bean。
  */
 public class MybatisPlusOutboxAppender implements OutboxAppender {
 
