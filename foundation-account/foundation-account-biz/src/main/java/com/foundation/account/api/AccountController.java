@@ -22,8 +22,8 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
@@ -32,8 +32,10 @@ import java.util.List;
  *
  * <p>写接口的 {@code Idempotency-Key} 由 {@code foundation-starter-web}（BAS-24）统一处理；
  * Foundation 不保存口令（重置只经 Keycloak 发邮件或返回一次性临时口令）。
+ *
+ * <p>本类不标 {@code @RestController}：由 {@code AccountAutoConfiguration} 以 {@code @Bean} 装配。
  */
-@RestController
+@ResponseBody
 @RequestMapping("/api/fdn/accounts")
 public class AccountController {
 

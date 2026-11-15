@@ -8,13 +8,15 @@ import com.foundation.starter.security.principal.PrincipalHolder;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 /**
  * 离职联动 REST（F-04 BAS-14 §4）：只做参数绑定与权限注解，动作链在
  * {@link OffboardingApplicationService}。
+ *
+ * <p>本类不标 {@code @RestController}：由 {@code AccountAutoConfiguration} 以 {@code @Bean} 装配。
  */
-@RestController
+@ResponseBody
 @RequestMapping("/api/fdn")
 public class OffboardingController {
 

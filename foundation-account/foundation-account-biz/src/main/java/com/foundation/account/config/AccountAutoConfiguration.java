@@ -2,7 +2,11 @@ package com.foundation.account.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.foundation.account.api.AccountApi;
+import com.foundation.account.api.AccountController;
 import com.foundation.account.api.ExternalIdentityApi;
+import com.foundation.account.api.ExternalIdentityController;
+import com.foundation.account.api.OffboardingController;
+import com.foundation.account.api.ServiceAccountController;
 import com.foundation.account.application.AccountApiAdapter;
 import com.foundation.account.application.AccountApplicationService;
 import com.foundation.account.application.AccountPushService;
@@ -205,5 +209,34 @@ public class AccountAutoConfiguration {
     @ConditionalOnMissingBean
     public ExternalIdentityApi externalIdentityApi(ExternalIdentityApplicationService identities) {
         return new ExternalIdentityApiAdapter(identities);
+    }
+
+    // ---------- REST 控制器 ----------
+    // 与上列 Bean 同生命周期注册：无持久化上下文时整块跳过，避免组件扫描出的控制器装配失败。
+
+    @Bean
+    @ConditionalOnMissingBean
+    public AccountController accountController(AccountApplicationService accounts) {
+        return new AccountController(accounts);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public ServiceAccountController serviceAccountController(ServiceAccountApplicationService serviceAccounts,
+                                                             HandoverService handovers) {
+        return new ServiceAccountController(serviceAccounts, handovers);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public ExternalIdentityController externalIdentityController(
+            ExternalIdentityApplicationService identities) {
+        return new ExternalIdentityController(identities);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public OffboardingController offboardingController(OffboardingApplicationService offboarding) {
+        return new OffboardingController(offboarding);
     }
 }

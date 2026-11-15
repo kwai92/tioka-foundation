@@ -16,8 +16,8 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
@@ -25,8 +25,10 @@ import java.util.List;
  * 服务账号 REST（F-04 §3、§7）：账号主体在 {@code fdn_account}（{@code type=SERVICE}），
  * 应用绑定、权限码白名单与 {@code client_credentials} 客户端由 BAS-04 维护；
  * 交接待办见 BAS-14（{@link HandoverService}）。
+ *
+ * <p>本类不标 {@code @RestController}：由 {@code AccountAutoConfiguration} 以 {@code @Bean} 装配。
  */
-@RestController
+@ResponseBody
 @RequestMapping("/api/fdn/service-accounts")
 public class ServiceAccountController {
 

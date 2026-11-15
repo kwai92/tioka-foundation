@@ -11,8 +11,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
@@ -20,8 +20,10 @@ import java.util.List;
  * 外部身份 REST（F-04 §2、§7）：待处理关联列表与管理员确认 / 解除。
  *
  * <p>自动关联只按工号或已验证邮箱且唯一时建立；**无姓名匹配、无自动建人**。
+ *
+ * <p>本类不标 {@code @RestController}：由 {@code AccountAutoConfiguration} 以 {@code @Bean} 装配。
  */
-@RestController
+@ResponseBody
 @RequestMapping("/api/fdn/external-identities")
 public class ExternalIdentityController {
 
