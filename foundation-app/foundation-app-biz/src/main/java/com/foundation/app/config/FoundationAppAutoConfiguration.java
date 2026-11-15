@@ -1,8 +1,12 @@
 package com.foundation.app.config;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import com.foundation.app.api.AppApi;
 import com.foundation.app.api.AppClientApi;
+import com.foundation.app.api.AppClientController;
+import com.foundation.app.api.AppController;
 import com.foundation.app.api.AppManifestVersionApi;
+import com.foundation.app.api.AppServiceAccountController;
 import com.foundation.app.api.ServiceAccountApi;
 import com.foundation.app.application.AppManifestVersionService;
 import com.foundation.app.application.AppRegistrar;
@@ -34,6 +38,7 @@ import org.springframework.context.annotation.Bean;
  * （{@code foundation-common-biz} 提供实现）；两者缺失时本自动装配不生效，纯配置上下文不受影响。
  */
 @AutoConfiguration
+@ConditionalOnProperty(prefix = "foundation.server.domains", name = "app", havingValue = "true", matchIfMissing = true)
 @AutoConfigureAfter(name = "com.foundation.starter.data.config.FoundationDataAutoConfiguration")
 @ConditionalOnBean({SqlSessionFactory.class, KeycloakOidcClientAdmin.class})
 @EnableConfigurationProperties(AppProperties.class)
@@ -81,5 +86,26 @@ public class FoundationAppAutoConfiguration {
     public ServiceAccountApi serviceAccountApi(AppRepository apps, ServiceAccountRepository accounts,
                                                KeycloakOidcClientAdmin keycloak, AppProperties properties) {
         return new ServiceAccountService(apps, accounts, keycloak, properties);
+    }
+
+    // ---------- BAS-04 REST 控制器 ----------
+    // 与上列 Bean 同生命周期注册：无持久化上下文（缺 SqlSessionFactory / KeycloakOidcClientAdmin）时整块跳过。
+
+    @Bean
+    @ConditionalOnMissingBean
+    public AppController appController(AppApi apps) {
+        return new AppController(apps);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public AppClientController appClientController(AppClientApi clients) {
+        return new AppClientController(clients);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public AppServiceAccountController appServiceAccountController(ServiceAccountApi serviceAccounts) {
+        return new AppServiceAccountController(serviceAccounts);
     }
 }

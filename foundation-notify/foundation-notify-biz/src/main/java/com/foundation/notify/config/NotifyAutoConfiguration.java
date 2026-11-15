@@ -1,5 +1,6 @@
 package com.foundation.notify.config;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.foundation.authz.api.GrantApi;
 import com.foundation.common.api.event.EventProperties;
@@ -60,6 +61,7 @@ import java.util.List;
  * <p>顺带开启 {@code @EnableScheduling}：保留期清理 {@link MessageRetentionJob} 依赖 {@code @Scheduled} 生效。
  */
 @AutoConfiguration
+@ConditionalOnProperty(prefix = "foundation.server.domains", name = "notify", havingValue = "true", matchIfMissing = true)
 @AutoConfigureAfter(name = {
         "com.foundation.starter.data.config.FoundationDataAutoConfiguration",
         "com.foundation.common.config.CommonAutoConfiguration",

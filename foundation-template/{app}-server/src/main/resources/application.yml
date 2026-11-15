@@ -17,11 +17,20 @@ spring:
     # 统一 JSON 输出：null 字段不下发（00-施工总纲 §2.2）
     default-property-inclusion: non_null
 
+# 接入总配置：foundation-starter-core 的 FoundationProperties，前缀就是 foundation。
+# 旧模板写的 foundation.client.base-url / app-code / service-account 从未被任何
+# @ConfigurationProperties 绑定（仓库内不存在 foundation.client 前缀），已按代码回写。
 foundation:
-  client:
-    # 中台地址（mode=foundation 时必填）
-    base-url: ${FOUNDATION_BASE_URL:}
-    # 应用编码（在 Foundation 登记的应用编码）
-    app-code: {app}
-    # 服务账号（只写不读，环境变量注入）
-    service-account: ${FOUNDATION_SERVICE_ACCOUNT:}
+  enabled: true
+  # 接入总开关；关时各 starter 自动配置不激活（本地模式）
+  # 中台地址（mode=foundation 时必填）
+  base-url: ${FOUNDATION_BASE_URL:}
+  # 应用编码（在 Foundation 登记的应用编码）
+  app-code: {app}
+  # 部署命名空间（ADP-07）：与 Foundation 服务端保持一致，否则读不到同一套缓存/事件
+  deployment-id: ${FOUNDATION_DEPLOYMENT_ID:default}
+  # 服务账号（只写不读，环境变量注入）
+  service-account:
+    client-id: ${FOUNDATION_SERVICE_ACCOUNT_CLIENT_ID:}
+    client-secret: ${FOUNDATION_SERVICE_ACCOUNT_CLIENT_SECRET:}
+    token-uri: ${FOUNDATION_SERVICE_ACCOUNT_TOKEN_URI:}

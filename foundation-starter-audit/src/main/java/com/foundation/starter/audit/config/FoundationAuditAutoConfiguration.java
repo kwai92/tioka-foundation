@@ -15,7 +15,7 @@ import okhttp3.OkHttpClient;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import com.foundation.starter.core.condition.ConditionalOnFoundationCapability;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 
@@ -29,7 +29,7 @@ import java.time.Duration;
  * 本配置提供 {@link DeniedAuditSink} 实现，接管 {@code PermissionAspect} 的拒绝审计写入。
  */
 @AutoConfiguration
-@ConditionalOnProperty(prefix = "foundation", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnFoundationCapability("audit")
 @EnableConfigurationProperties(FoundationAuditProperties.class)
 public class FoundationAuditAutoConfiguration {
 

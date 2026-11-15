@@ -8,13 +8,16 @@ import com.foundation.starter.cache.ratelimit.LocalRateLimiter;
 import com.foundation.starter.cache.ratelimit.RateLimiter;
 import com.foundation.starter.cache.ratelimit.RedissonRateLimiter;
 import com.foundation.starter.core.config.CoreAutoConfiguration;
+import com.foundation.starter.core.namespace.DeploymentNamespace;
 import org.redisson.Redisson;
 import org.redisson.api.RedissonClient;
 import org.redisson.config.Config;
 import org.redisson.config.SingleServerConfig;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import com.foundation.starter.core.condition.ConditionalOnFoundationCapability;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.data.redis.RedisProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -31,15 +34,27 @@ import org.springframework.context.annotation.Configuration;
  * <p>Redisson 相关类型只出现在被 {@link ConditionalOnClass} 守住的嵌套配置里，避免类加载失败。
  */
 @AutoConfiguration(after = CoreAutoConfiguration.class)
-@ConditionalOnProperty(prefix = "foundation", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnFoundationCapability("cache")
 @EnableConfigurationProperties(FoundationCacheProperties.class)
 public class FoundationCacheAutoConfiguration {
 
-    /** 键前缀（所有缓存键、锁键与限流键的统一前缀）。 */
+    /**
+     * 键前缀（所有缓存键、锁键与限流键的统一前缀）。
+     *
+     * <p>ADP-07：未显式配置 {@code foundation.cache.key-prefix} 时，从
+     * {@link DeploymentNamespace} 派生（{@code fdn:{deploymentId}:}），
+     * 让多套部署共用一个 Redis 实例也互不干扰；显式配置保持原样，老接入方零改动。
+     */
     @Bean
     @ConditionalOnMissingBean
-    public KeyPrefix foundationKeyPrefix(FoundationCacheProperties properties) {
-        return new KeyPrefix(properties.getKeyPrefix());
+    public KeyPrefix foundationKeyPrefix(FoundationCacheProperties properties,
+                                         ObjectProvider<DeploymentNamespace> namespaceProvider) {
+        // 单独复用本 starter（未装配 core）时退化为缺省命名空间，保持既有行为
+        DeploymentNamespace namespace = namespaceProvider.getIfAvailable(DeploymentNamespace::defaults);
+        String configured = properties.getKeyPrefix();
+        String prefix = FoundationCacheProperties.DEFAULT_KEY_PREFIX.equals(configured)
+                ? namespace.keyPrefix() : configured;
+        return new KeyPrefix(prefix);
     }
 
     /** 单实例分布式锁（{@code backend=local}，缺省）。 */

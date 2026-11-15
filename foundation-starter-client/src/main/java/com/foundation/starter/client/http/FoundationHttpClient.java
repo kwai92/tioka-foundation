@@ -3,6 +3,7 @@ package com.foundation.starter.client.http;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.foundation.starter.core.contract.FoundationApiVersion;
 import com.foundation.starter.core.context.RequestContext;
 import com.foundation.starter.core.http.BearerTokenSupplier;
 import okhttp3.MediaType;
@@ -188,7 +189,8 @@ public class FoundationHttpClient {
     }
 
     private String execute(String path) {
-        Request.Builder builder = new Request.Builder().url(baseUrl + path).get();
+        Request.Builder builder = new Request.Builder().url(baseUrl + path).get()
+                .header(FoundationApiVersion.HEADER, FoundationApiVersion.CURRENT);
         String token = tokenSupplier == null ? null : tokenSupplier.bearerToken();
         if (token != null && !token.isBlank()) {
             builder.header("Authorization", "Bearer " + token);
@@ -210,6 +212,7 @@ public class FoundationHttpClient {
 
     /** 附加认证与 trace 透传头。 */
     private Request.Builder authorized(Request.Builder builder) {
+        builder.header(FoundationApiVersion.HEADER, FoundationApiVersion.CURRENT);
         String token = tokenSupplier == null ? null : tokenSupplier.bearerToken();
         if (token != null && !token.isBlank()) {
             builder.header("Authorization", "Bearer " + token);

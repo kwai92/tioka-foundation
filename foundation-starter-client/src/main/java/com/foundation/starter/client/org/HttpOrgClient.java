@@ -27,13 +27,13 @@ public class HttpOrgClient implements OrgClient {
 
     @Override
     public Optional<OrgUnit> byCode(String orgCode) {
-        OrgUnit unit = unitCache.get("fdn:org:" + orgCode, () -> toUnit(http.get("/api/foundation/org/units/" + orgCode)));
+        OrgUnit unit = unitCache.getWithDegrade("fdn:org:" + orgCode, () -> toUnit(http.get("/api/foundation/org/units/" + orgCode)));
         return Optional.ofNullable(unit);
     }
 
     @Override
     public List<OrgUnit> children(String orgCode) {
-        List<OrgUnit> units = childrenCache.get("fdn:org:" + orgCode + ":children", () -> {
+        List<OrgUnit> units = childrenCache.getWithDegrade("fdn:org:" + orgCode + ":children", () -> {
             JsonNode node = http.get("/api/foundation/org/units/" + orgCode + "/children");
             if (node == null) {
                 return List.of();

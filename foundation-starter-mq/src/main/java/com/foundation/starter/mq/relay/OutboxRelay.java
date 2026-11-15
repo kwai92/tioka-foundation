@@ -32,20 +32,29 @@ public class OutboxRelay {
     private final FoundationMqProperties properties;
     /** 保留以对齐签名；中继只原样透传 {@link OutboxEntry#payload()} 字符串。 */
     private final ObjectMapper objectMapper;
+    /** 并列投递通道（ADP-02）：MQ 之后依次调用，任一失败整条转重试/死信。 */
+    private final List<EventSink> eventSinks;
 
     private volatile ScheduledExecutorService executor;
 
-    /** 构造器：不注入 ObjectMapper（{@code null}）。 */
+    /** 构造器：不注入 ObjectMapper（{@code null}），无附加通道。 */
     public OutboxRelay(Outbox outbox, MqTemplate mqTemplate, FoundationMqProperties properties) {
-        this(outbox, mqTemplate, properties, null);
+        this(outbox, mqTemplate, properties, null, List.of());
     }
 
     public OutboxRelay(Outbox outbox, MqTemplate mqTemplate, FoundationMqProperties properties,
                        ObjectMapper objectMapper) {
+        this(outbox, mqTemplate, properties, objectMapper, List.of());
+    }
+
+    /** 带并列通道的构造器；由自动装配注入所有 {@link EventSink} Bean。 */
+    public OutboxRelay(Outbox outbox, MqTemplate mqTemplate, FoundationMqProperties properties,
+                       ObjectMapper objectMapper, List<EventSink> eventSinks) {
         this.outbox = outbox;
         this.mqTemplate = mqTemplate;
         this.properties = properties;
         this.objectMapper = objectMapper;
+        this.eventSinks = eventSinks == null ? List.of() : List.copyOf(eventSinks);
     }
 
     /**
@@ -61,6 +70,9 @@ public class OutboxRelay {
         for (OutboxEntry entry : pending) {
             try {
                 mqTemplate.send(entry.topic(), entry.eventType(), entry.payload());
+                for (EventSink sink : eventSinks) {
+                    sink.deliver(entry);
+                }
                 outbox.markSent(entry.id());
                 sent++;
             } catch (RuntimeException ex) {

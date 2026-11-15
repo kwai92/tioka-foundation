@@ -1,5 +1,6 @@
 package com.foundation.common.config;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.foundation.common.api.dict.DictApi;
 import com.foundation.common.api.event.EventProperties;
@@ -41,6 +42,7 @@ import org.springframework.context.annotation.Bean;
  * （如纯配置绑定的上下文测试）时整块跳过。
  */
 @AutoConfiguration
+@ConditionalOnProperty(prefix = "foundation.server.domains", name = "common", havingValue = "true", matchIfMissing = true)
 @AutoConfigureAfter(name = "com.foundation.starter.data.config.FoundationDataAutoConfiguration")
 @ConditionalOnBean(SqlSessionFactory.class)
 @EnableConfigurationProperties({DictProperties.class, ParamProperties.class, EventProperties.class})

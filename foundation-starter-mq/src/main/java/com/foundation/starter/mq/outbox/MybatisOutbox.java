@@ -31,7 +31,11 @@ public class MybatisOutbox implements Outbox {
         row.setTopic(event.topic());
         row.setEventType(event.eventType());
         row.setAggregate(event.aggregate());
-        row.setPayload(toJson(event.payload()));
+        // ADP-02：契约版本随事件体落库（新增字段，对既有订阅方兼容）。
+        // 用 LinkedHashMap 保持业务字段顺序，便于排查与快照比对。
+        java.util.Map<String, Object> body = new java.util.LinkedHashMap<>(event.payload());
+        body.putIfAbsent("schemaVersion", event.schemaVersion());
+        row.setPayload(toJson(body));
         outboxMapper.insertOutbox(row);
     }
 

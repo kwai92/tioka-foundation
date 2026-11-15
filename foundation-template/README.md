@@ -47,9 +47,13 @@ mvn -B verify
 | 键 | 环境变量 | 说明 |
 | --- | --- | --- |
 | `spring.datasource.url/username/password` | `APP_DB_URL` / `APP_DB_USERNAME` / `APP_DB_PASSWORD` | 数据库连接 |
-| `foundation.client.base-url` | `FOUNDATION_BASE_URL` | 中台地址（`mode=foundation` 时必填） |
-| `foundation.client.app-code` | `APP_CODE`（默认 `{app}`） | 应用编码 |
-| `foundation.client.service-account` | `FOUNDATION_SERVICE_ACCOUNT` | 服务账号（**只写不读**，环境变量注入） |
+| `foundation.base-url` | `FOUNDATION_BASE_URL` | 中台地址（`mode=foundation` 时必填） |
+| `foundation.app-code` | `APP_CODE`（默认 `{app}`） | 应用编码 |
+| `foundation.deployment-id` | `FOUNDATION_DEPLOYMENT_ID` | 部署命名空间，须与服务端一致（ADP-07） |
+| `foundation.service-account.client-id` / `client-secret` / `token-uri` | `FOUNDATION_SERVICE_ACCOUNT_CLIENT_ID` / `_CLIENT_SECRET` / `_TOKEN_URI` | 服务账号（**只写不读**，环境变量注入） |
+
+> 配置前缀就是 `foundation`（`FoundationProperties`），**不是** `foundation.client`；
+> 本模板早期版本写的 `foundation.client.*` 没有被任何 `@ConfigurationProperties` 绑定，已按代码回写。
 
 ## 2. 六项接入自检（S15 §12.1）
 
@@ -57,7 +61,7 @@ mvn -B verify
 
 | # | 检查项 | 检查什么 | 通过标准 | 相关配置 |
 | --- | --- | --- | --- | --- |
-| 1 | **登录** | 门户跳转登录，令牌经 starter 校验并解析出账号、人员、主组织单元 | 进入首页，业务请求不再 401 | `foundation.client.base-url` / `app-code` / `service-account` |
+| 1 | **登录** | 门户跳转登录，令牌经 starter 校验并解析出账号、人员、主组织单元 | 进入首页，业务请求不再 401 | `foundation.base-url` / `app-code` / `service-account.*` |
 | 2 | **菜单** | 授权快照菜单与前端路由一致；菜单只来自快照 | 只出现已授权菜单；刷新与深链可直达 | `docs/权限清单.json` 的 `menus` |
 | 3 | **按钮** | 按钮权限码与接口 `@RequirePermission` 一致 | 无权按钮隐藏；直调接口返回 403 | 清单 `permissions` 与控制器注解 |
 | 4 | **数据范围** | 列表按快照的数据范围（部门五档 + 自定义维度）过滤 | 超出范围的数据不可见、不可改 | 清单维度声明 + `foundation-starter-security` 数据范围注解 |

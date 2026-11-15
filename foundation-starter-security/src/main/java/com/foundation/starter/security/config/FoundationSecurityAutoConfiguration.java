@@ -30,7 +30,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import com.foundation.starter.core.condition.ConditionalOnFoundationCapability;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -42,6 +42,7 @@ import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.net.URI;
+import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
 
@@ -52,7 +53,7 @@ import java.util.List;
  * {@link CurrentUserArgumentResolver} 注册（{@link PrincipalHolder} 与后台任务的 {@code runAs} 仍可用）。
  */
 @AutoConfiguration
-@ConditionalOnProperty(prefix = "foundation", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnFoundationCapability("security")
 @EnableConfigurationProperties({FoundationSecurityProperties.class,
         FoundationAuthzProperties.class,
         FoundationDataScopeProperties.class})
@@ -114,7 +115,10 @@ public class FoundationSecurityAutoConfiguration {
                 foundationProperties.getAppCode(),
                 snapshot.getCacheTtl(),
                 snapshot.getLocalCache().isEnabled(),
-                snapshot.getLocalCache().getTtl());
+                snapshot.getLocalCache().getTtl(),
+                Clock.systemUTC(),
+                snapshot.isStaleAllowed(),
+                snapshot.getStaleMaxAge());
     }
 
     @Bean

@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:foundation:contract:permission-manifest:v1",
+  "title": "Foundation 权限清单契约 v1",
+  "description": "应用登记时导入的菜单与权限码清单。v1 冻结字段集与编码规则；新增可选字段为兼容变更，删除字段或改编码规则为破坏性变更。",
+  "type": "object",
+  "required": ["version", "menus", "permissions"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1,
+      "description": "契约版本；v1 只允许 1"
+    },
+    "menus": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/menu" }
+    },
+    "permissions": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/permission" }
+    }
+  },
+  "definitions": {
+    "menu": {
+      "type": "object",
+      "required": ["code", "name", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+        },
+        "name": { "type": "string", "minLength": 1 },
+        "type": { "type": "string", "enum": ["MENU", "BUTTON", "DIR", "LINK"] },
+        "parent": { "type": "string" },
+        "routePath": { "type": "string" },
+        "component": { "type": "string" },
+        "icon": { "type": "string" },
+        "sort": { "type": "integer" },
+        "visible": { "type": "boolean" },
+        "permissionCode": { "type": "string" }
+      }
+    },
+    "permission": {
+      "type": "object",
+      "required": ["code", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]*(:[a-z0-9_-]+)+$",
+          "description": "形如 资源:动作，至少两段"
+        },
+        "name": { "type": "string", "minLength": 1 },
+        "riskLevel": {
+          "type": "string",
+          "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+        }
+      }
+    }
+  }
+}

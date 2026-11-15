@@ -17,6 +17,9 @@ public class FoundationMqProperties {
     /** outbox 中继配置。 */
     private final Relay relay = new Relay();
 
+    /** Webhook 事件通道配置（ADP-02）。 */
+    private final Webhook webhook = new Webhook();
+
     /** 消费配置。 */
     private final Consumer consumer = new Consumer();
 
@@ -38,6 +41,10 @@ public class FoundationMqProperties {
 
     public Relay getRelay() {
         return relay;
+    }
+
+    public Webhook getWebhook() {
+        return webhook;
     }
 
     public Consumer getConsumer() {
@@ -115,6 +122,76 @@ public class FoundationMqProperties {
 
         public void setMaxMemoryEntries(int maxMemoryEntries) {
             this.maxMemoryEntries = maxMemoryEntries;
+        }
+    }
+
+    /** Webhook 并列投递通道（foundation.mq.webhook.*）。 */
+    public static class Webhook {
+
+        /** 总开关；缺省关闭。启用时 url 与 secret 必填，缺失则启动失败。 */
+        private boolean enabled = false;
+
+        /** 订阅端地址（HTTPS，生产强制）。 */
+        private String url;
+
+        /** HMAC-SHA256 签名密钥，经环境变量注入，不入库。 */
+        private String secret;
+
+        /** 连接超时。 */
+        private Duration connectTimeout = Duration.ofSeconds(3);
+
+        /** 单次请求超时。 */
+        private Duration timeout = Duration.ofSeconds(5);
+
+        /** 事件白名单；为空表示全部事件。 */
+        private java.util.List<String> allowedEventTypes = java.util.List.of();
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public String getUrl() {
+            return url;
+        }
+
+        public void setUrl(String url) {
+            this.url = url;
+        }
+
+        public String getSecret() {
+            return secret;
+        }
+
+        public void setSecret(String secret) {
+            this.secret = secret;
+        }
+
+        public Duration getConnectTimeout() {
+            return connectTimeout;
+        }
+
+        public void setConnectTimeout(Duration connectTimeout) {
+            this.connectTimeout = connectTimeout;
+        }
+
+        public Duration getTimeout() {
+            return timeout;
+        }
+
+        public void setTimeout(Duration timeout) {
+            this.timeout = timeout;
+        }
+
+        public java.util.List<String> getAllowedEventTypes() {
+            return allowedEventTypes;
+        }
+
+        public void setAllowedEventTypes(java.util.List<String> allowedEventTypes) {
+            this.allowedEventTypes = allowedEventTypes;
         }
     }
 }

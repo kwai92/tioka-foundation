@@ -1,0 +1,4 @@
+full=common,app,org,account,authz,auth,notify,audit,file,calendar,sequence,sync,scim,feishu,ldap
+iam=common,app,org,account,authz,auth
+common=common,audit,sequence
+minimal=common,sequence

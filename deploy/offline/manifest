@@ -6,6 +6,12 @@
 # 以及与部署直接相关的镜像条目。版本与测试基座 foundation-test/src/main/java/com/foundation/test/FoundationContainers.java 保持一致。
 #
 # 格式：镜像 | 版本 | 用途 | 登记工作项
+#
+# ADP-07 部署命名空间：同一套镜像多套部署时，先执行
+#   eval "$(bash deploy/init/render-deployment.sh --id <deployment-id>)"
+# 再按输出的 realm / topic / 键前缀 / 桶 / schema 准备各套部署的外部资源；
+# 离线包中的 deploy/init/foundation-realm.json 是 default 基线，非 default 需导入脚本生成的
+# foundation-realm.<id>.json。离线清单本身与 deployment-id 无关（镜像只有一份清单，约束 F43）。
 
 镜像 | 版本 | 用途 | 登记工作项
 --- | --- | --- | ---

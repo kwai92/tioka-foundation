@@ -1,5 +1,6 @@
 package com.foundation.audit.config;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.foundation.account.api.AccountApi;
 import com.foundation.audit.api.AuditApi;
@@ -54,6 +55,7 @@ import javax.sql.DataSource;
  * {@link AuditRetentionJob} 依赖 {@code @Scheduled} 生效。
  */
 @AutoConfiguration
+@ConditionalOnProperty(prefix = "foundation.server.domains", name = "audit", havingValue = "true", matchIfMissing = true)
 @AutoConfigureAfter(name = {
         "com.foundation.starter.data.config.FoundationDataAutoConfiguration",
         "com.foundation.common.config.CommonAutoConfiguration",

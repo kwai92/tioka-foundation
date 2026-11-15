@@ -26,6 +26,10 @@ ui:
 config:
   FOUNDATION_SERVER_PORT: "8081"
   FOUNDATION_FLYWAY_ENABLED: "false"
+  # ADP-07 部署命名空间：多套部署设为不同 id，realm/topic/键前缀/桶由服务端派生。
+  # 下面显式配置的 FOUNDATION_KEYCLOAK_REALM / FOUNDATION_EVENT_TOPIC 优先级更高，
+  # 非 default 部署若保留显式值，必须同步改成带 id 的值（或删除这两行让服务端派生）。
+  FOUNDATION_DEPLOYMENT_ID: "default"
   FOUNDATION_REDIS_HOST: redis
   FOUNDATION_REDIS_PREFIX: fdn
   FOUNDATION_KEYCLOAK_URL: http://foundation-keycloak:8180

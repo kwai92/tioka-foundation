@@ -40,4 +40,25 @@ class DomainEventTest {
 
         assertTrue(event.payload().isEmpty());
     }
+
+    @Test
+    void 四参数工厂保持缺省契约版本_向后兼容() {
+        DomainEvent event = DomainEvent.of("fdn-events", "fdn.dict.changed", "dt_1", Map.of("id", "dt_1"));
+
+        assertEquals(DomainEvent.DEFAULT_SCHEMA_VERSION, event.schemaVersion());
+    }
+
+    @Test
+    void 可显式指定契约版本() {
+        DomainEvent event = DomainEvent.of("fdn-events", "fdn.dict.changed", "dt_1",
+                Map.of("id", "dt_1"), 2);
+
+        assertEquals(2, event.schemaVersion());
+    }
+
+    @Test
+    void 非法契约版本拒绝() {
+        assertThrows(IllegalArgumentException.class,
+                () -> DomainEvent.of("fdn-events", "fdn.dict.changed", "dt_1", Map.of(), 0));
+    }
 }

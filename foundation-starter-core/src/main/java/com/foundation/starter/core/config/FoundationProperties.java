@@ -20,6 +20,13 @@ public class FoundationProperties {
     /** Foundation 服务基址。 */
     private String baseUrl = "http://localhost:8080";
 
+    /**
+     * 部署标识（ADP-07 / P5）：同一镜像在多个环境/多套部署中隔离 realm、topic、键前缀、
+     * bucket 前缀与库 schema。缺省 {@code default} 时派生值与历史字面量完全一致（零改动兼容），
+     * 生产环境使用缺省值会打 WARN。格式见 {@code DeploymentNamespace}。
+     */
+    private String deploymentId = "default";
+
     /** 服务账号（{@code client_credentials}）。 */
     private final ServiceAccount serviceAccount = new ServiceAccount();
 
@@ -45,6 +52,14 @@ public class FoundationProperties {
 
     public void setBaseUrl(String baseUrl) {
         this.baseUrl = baseUrl;
+    }
+
+    public String getDeploymentId() {
+        return deploymentId;
+    }
+
+    public void setDeploymentId(String deploymentId) {
+        this.deploymentId = deploymentId;
     }
 
     public ServiceAccount getServiceAccount() {

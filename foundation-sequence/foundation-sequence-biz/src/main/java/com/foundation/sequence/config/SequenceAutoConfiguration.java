@@ -1,5 +1,6 @@
 package com.foundation.sequence.config;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import com.foundation.common.api.dict.DictApi;
 import com.foundation.sequence.api.SequenceApi;
 import com.foundation.sequence.api.SequenceController;
@@ -35,6 +36,7 @@ import java.time.Clock;
  * 缺失时跳过业务码值登记校验（运行时不依赖字典）。
  */
 @AutoConfiguration
+@ConditionalOnProperty(prefix = "foundation.server.domains", name = "sequence", havingValue = "true", matchIfMissing = true)
 @AutoConfigureAfter(name = "com.foundation.starter.data.config.FoundationDataAutoConfiguration")
 @ConditionalOnBean(SqlSessionFactory.class)
 @EnableConfigurationProperties(SequenceProperties.class)

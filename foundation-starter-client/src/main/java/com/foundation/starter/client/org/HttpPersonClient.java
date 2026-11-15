@@ -29,21 +29,21 @@ public class HttpPersonClient implements PersonClient {
 
     @Override
     public Optional<Person> byEmployeeNo(String employeeNo) {
-        Person person = personCache.get("fdn:person:no:" + employeeNo,
+        Person person = personCache.getWithDegrade("fdn:person:no:" + employeeNo,
                 () -> toPerson(http.get("/api/foundation/persons?employeeNo=" + encode(employeeNo))));
         return Optional.ofNullable(person);
     }
 
     @Override
     public Optional<Person> byId(String personId) {
-        Person person = personCache.get("fdn:person:id:" + personId,
+        Person person = personCache.getWithDegrade("fdn:person:id:" + personId,
                 () -> toPerson(http.get("/api/foundation/persons/" + personId)));
         return Optional.ofNullable(person);
     }
 
     @Override
     public List<Person> byOrgUnit(String orgCode, boolean includeSub) {
-        List<Person> persons = listCache.get("fdn:person:org:" + orgCode + ":" + includeSub, () -> {
+        List<Person> persons = listCache.getWithDegrade("fdn:person:org:" + orgCode + ":" + includeSub, () -> {
             JsonNode node = http.get("/api/foundation/persons?orgUnit=" + encode(orgCode)
                     + "&includeSub=" + includeSub);
             if (node == null) {

@@ -28,8 +28,15 @@ public class FoundationAuthzProperties {
         /** 缓存 TTL（事件丢失兜底，S15 §11.3）。 */
         private Duration cacheTtl = Duration.ofMinutes(5);
 
-        /** 缓存过期且取不到时的行为：{@code deny}（拒绝，不放行）。 */
+        /**
+         * 缓存过期且取不到时的行为：{@code deny}（拒绝，不放行，默认）或
+         * {@code stale}（在 {@code stale-max-age} 内返回过期快照，需审计与降级标记）。
+         * 身份与授权类建议保持 deny，见 36 号规划 §6 与待决策 D4。
+         */
         private String failMode = "deny";
+
+        /** {@code fail-mode=stale} 时可容忍的最大陈旧时长（默认 10 分钟）。 */
+        private Duration staleMaxAge = Duration.ofMinutes(10);
 
         /** 进程内一级缓存（默认关）。 */
         private final LocalCache localCache = new LocalCache();
@@ -48,6 +55,26 @@ public class FoundationAuthzProperties {
 
         public void setFailMode(String failMode) {
             this.failMode = failMode;
+        }
+
+        /** 解析 fail-mode；未知配置快速失败，避免把拼错的配置当 deny 悄悄放过。 */
+        public boolean isStaleAllowed() {
+            if ("stale".equalsIgnoreCase(failMode)) {
+                return true;
+            }
+            if ("deny".equalsIgnoreCase(failMode)) {
+                return false;
+            }
+            throw new IllegalArgumentException("非法的 foundation.authz.snapshot.fail-mode="
+                    + failMode + "，可选 deny / stale");
+        }
+
+        public Duration getStaleMaxAge() {
+            return staleMaxAge;
+        }
+
+        public void setStaleMaxAge(Duration staleMaxAge) {
+            this.staleMaxAge = staleMaxAge == null ? Duration.ofMinutes(10) : staleMaxAge;
         }
 
         public LocalCache getLocalCache() {

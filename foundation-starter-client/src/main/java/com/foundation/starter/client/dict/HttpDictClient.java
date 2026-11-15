@@ -27,7 +27,7 @@ public class HttpDictClient implements DictClient {
 
     @Override
     public List<DictItem> items(String typeCode) {
-        List<DictItem> items = cache.get("fdn:dict:" + typeCode, () -> fetch(typeCode));
+        List<DictItem> items = cache.getWithDegrade("fdn:dict:" + typeCode, () -> fetch(typeCode));
         return items == null ? List.of() : items;
     }
 

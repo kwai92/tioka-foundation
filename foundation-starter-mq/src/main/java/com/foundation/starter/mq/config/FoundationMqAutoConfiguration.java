@@ -11,15 +11,19 @@ import com.foundation.starter.mq.outbox.MybatisOutbox;
 import com.foundation.starter.mq.outbox.MybatisPlusOutboxAppender;
 import com.foundation.starter.mq.outbox.Outbox;
 import com.foundation.starter.mq.outbox.OutboxMapper;
+import com.foundation.starter.mq.relay.EventSink;
 import com.foundation.starter.mq.relay.OutboxRelay;
+import com.foundation.starter.mq.relay.WebhookEventSink;
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import com.foundation.starter.core.condition.ConditionalOnFoundationCapability;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -31,7 +35,7 @@ import org.springframework.context.annotation.Configuration;
  * {@link RocketMQTemplate} 时提供，缺失时退化为 {@link LoggingMqTemplate}。
  */
 @AutoConfiguration(after = CoreAutoConfiguration.class)
-@ConditionalOnProperty(prefix = "foundation", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnFoundationCapability("mq")
 @EnableConfigurationProperties(FoundationMqProperties.class)
 public class FoundationMqAutoConfiguration {
 
@@ -47,8 +51,9 @@ public class FoundationMqAutoConfiguration {
     @ConditionalOnMissingBean
     @ConditionalOnProperty(prefix = "foundation.mq.relay", name = "enabled", havingValue = "true")
     public OutboxRelay outboxRelay(Outbox outbox, MqTemplate mqTemplate,
-                                   FoundationMqProperties properties, ObjectMapper objectMapper) {
-        return new OutboxRelay(outbox, mqTemplate, properties, objectMapper);
+                                   FoundationMqProperties properties, ObjectMapper objectMapper,
+                                   ObjectProvider<EventSink> sinks) {
+        return new OutboxRelay(outbox, mqTemplate, properties, objectMapper, sinks.orderedStream().toList());
     }
 
     /** 基于 MyBatis-Plus 的 outbox 与消费幂等（存在 BaseMapper 与 SqlSessionFactory 时）。 */
@@ -73,6 +78,18 @@ public class FoundationMqAutoConfiguration {
         @ConditionalOnMissingBean
         public MybatisConsumedStore mybatisConsumedStore(ConsumedMessageMapper consumedMessageMapper) {
             return new MybatisConsumedStore(consumedMessageMapper);
+        }
+    }
+
+    /** Webhook 并列投递通道（ADP-02）：显式开启才装配，缺 url/secret 时启动失败。 */
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnProperty(prefix = "foundation.mq.webhook", name = "enabled", havingValue = "true")
+    static class WebhookConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean(EventSink.class)
+        public WebhookEventSink webhookEventSink(FoundationMqProperties properties, ObjectMapper objectMapper) {
+            return new WebhookEventSink(properties.getWebhook(), objectMapper);
         }
     }
 

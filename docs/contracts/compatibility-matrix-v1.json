@@ -1,0 +1,56 @@
+{
+  "contract": "foundation-compatibility-matrix",
+  "schemaVersion": 1,
+  "status": "frozen-v1",
+  "note": "服务端锁定一套技术栈；适配性放在接入侧（契约 / 开关 / SPI / 降级 / 命名空间 / 模板），不提供服务端中间件替换。本文件是 ADP-11 的机器可读权威源，由 scripts/verify-compatibility-matrix.mjs 与 CI 矩阵共同守门。",
+
+  "server": {
+    "java": ["17"],
+    "javaPlannedUnverified": ["21"],
+    "springBoot": "3.2.12",
+    "lockedStack": ["PostgreSQL", "Redis", "RocketMQ", "Keycloak", "MinIO"],
+    "lockedStackImages": ["pgvector/pgvector", "redis:7-alpine", "quay.io/keycloak/keycloak", "apache/rocketmq", "minio/minio"],
+    "notAdapted": [
+      "MySQL / MariaDB 等其它关系库作为 foundation-server 主库",
+      "Kafka / RabbitMQ 等其它消息中间件作为服务端事件总线",
+      "非 Keycloak 的 IdP 直接替代服务端 OIDC 发行方",
+      "JDK 8 / 11 运行 foundation-server",
+      "Spring Boot 2.x 运行 foundation-server"
+    ]
+  },
+
+  "sdk": {
+    "java": ["17"],
+    "node": ">=18",
+    "note": "Node 侧为 Webhook / REST 契约参考实现（sdk-examples/node），零第三方依赖；Java starter 与服务端同基线 JDK 17。"
+  },
+
+  "runtimeModes": ["foundation", "local", "self-managed"],
+  "serverProfiles": ["full", "iam", "common", "minimal"],
+  "capabilities": ["core", "web", "security", "data", "mq", "cache", "client", "audit", "observability"],
+
+  "ciMatrix": {
+    "axes": {
+      "mode": ["foundation", "local", "self-managed"],
+      "profile": ["full", "minimal"]
+    },
+    "combinations": [
+      "foundation/full",
+      "foundation/minimal",
+      "local/full",
+      "local/minimal",
+      "self-managed/full",
+      "self-managed/minimal"
+    ],
+    "note": "矩阵取 profile 的两端（全量 / 最小）；iam 与 common 两档由 server-profile-domains-v1.txt 冻结基线与 GaModularityGateTest 逐档守卫，不重复占用 4×3=12 个 CI job。每个组合由 CompatibilityMatrixProbeTest 消费 FOUNDATION_COMPAT_MODE / FOUNDATION_COMPAT_PROFILE 环境变量，不是空跑 6 次同一套测试。"
+  },
+
+  "rules": [
+    { "id": "CM-01", "rule": "接入运行模式（foundation.client.mode）与服务端装配 profile（foundation.server.profile）正交，互不影响。" },
+    { "id": "CM-02", "rule": "foundation.enabled=false 总开关优先于任何 foundation.<cap>.enabled，全部 starter 不装配。" },
+    { "id": "CM-03", "rule": "local / self-managed 模式下不得存在指向中台的出站 Bean（OkHttp 客户端、服务账号令牌、HTTP 版只读客户端）。" },
+    { "id": "CM-04", "rule": "四种 profile 都必须包含 common 域（EventProperties 等公共 Bean 是其它域的前置）；authz 还依赖 app 域。" },
+    { "id": "CM-05", "rule": "不提供服务端中间件替换；新增数据库 / MQ / IdP 适配必须先改本文件并经 D2 决策，不能只改代码。" },
+    { "id": "CM-06", "rule": "JDK 21 目前只列为待验证，本机无 JDK 21 时不得写入 CI 矩阵，避免产生无法复现的假红。" }
+  ]
+}

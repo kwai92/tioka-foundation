@@ -40,5 +40,25 @@
             <artifactId>foundation-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!--
+          ADP-06：无 Redis / 无 RocketMQ 的 B/D 类接入形态自检。
+          rocketmq-spring-boot-starter 与 redisson 在 starter 内是 optional，
+          不会传递到这里，因此本模块类路径天然不连任何中间件。
+        -->
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-starter-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-starter-cache</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-starter-mq</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 </project>

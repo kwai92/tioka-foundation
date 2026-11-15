@@ -56,6 +56,51 @@ class OutboxRelayTest {
         assertEquals(1, relay.pollOnce());
     }
 
+    @Test
+    void 并列通道成功后才标记已发送() {
+        FakeOutbox outbox = new FakeOutbox(List.of(entry("evt_1", "{\"n\":1}")));
+        List<String> delivered = new ArrayList<>();
+        EventSink sink = new EventSink() {
+            @Override
+            public String name() {
+                return "test";
+            }
+
+            @Override
+            public void deliver(OutboxEntry entry) {
+                delivered.add(entry.id());
+            }
+        };
+        OutboxRelay relay = new OutboxRelay(outbox, new RecordingMqTemplate(Set.of()),
+                properties(100), null, List.of(sink));
+
+        assertEquals(1, relay.pollOnce());
+        assertEquals(List.of("evt_1"), delivered);
+        assertEquals(List.of("evt_1"), outbox.sent);
+    }
+
+    @Test
+    void 并列通道失败时整条转重试() {
+        FakeOutbox outbox = new FakeOutbox(List.of(entry("evt_1", "{\"n\":1}")));
+        EventSink failing = new EventSink() {
+            @Override
+            public String name() {
+                return "failing";
+            }
+
+            @Override
+            public void deliver(OutboxEntry entry) {
+                throw new IllegalStateException("模拟 Webhook 5xx");
+            }
+        };
+        OutboxRelay relay = new OutboxRelay(outbox, new RecordingMqTemplate(Set.of()),
+                properties(100), null, List.of(failing));
+
+        assertEquals(0, relay.pollOnce());
+        assertTrue(outbox.sent.isEmpty(), "任一通道失败时不能标记已发送");
+        assertEquals(List.of("evt_1:5"), outbox.retried);
+    }
+
     private static FoundationMqProperties properties(int batchSize) {
         FoundationMqProperties properties = new FoundationMqProperties();
         properties.getRelay().setBatchSize(batchSize);

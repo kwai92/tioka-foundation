@@ -3,7 +3,7 @@
 Foundation 独立仓库的部署交付物：Docker Compose（小部署 / 验证）与 Helm chart（生产），
 外加数据库与 Keycloak 初始化脚本、离线镜像清单。
 
-- 施工设计权威：[F-11 部署与 Tioka 接入与 GF 闸门](../../docs/architecture/construction/F-11-部署与Tioka接入与GF闸门.md) §3
+- 施工设计权威：Tioka 主仓库 F-11 部署与 Tioka 接入与 GF 闸门 §3；本仓库内的部署约定以本文与 [文档导览](../docs/README.md) 为准
 - 设计权威：S15 Foundation 基础平台系统 §16
 - 本仓库是 Foundation 独立仓库（ADR-051 第 1 条）；本目录对应 F-11 §3.2 中 `compose.foundation.yml`
   叠加剖面的**自包含等价物**，不新增任何未经 ADR 许可的中间件（只用 PostgreSQL / Redis / RocketMQ / MinIO / Keycloak）。
@@ -88,35 +88,77 @@ docker compose -f deploy/compose.yml up -d --build
 | `spring.data.redis.host` | `FOUNDATION_REDIS_HOST` | `localhost` | Redis 主机 |
 | `spring.data.redis.port` | `FOUNDATION_REDIS_PORT` | `6379` | Redis 端口 |
 | `spring.data.redis.database` | `FOUNDATION_REDIS_DATABASE` | `0` | Redis 库号 |
-| `foundation.redis.prefix` | `FOUNDATION_REDIS_PREFIX` | `fdn` | 键前缀 |
+| `foundation.cache.key-prefix` | `FOUNDATION_CACHE_KEY_PREFIX` | `fdn:` | 缓存/锁/限流键前缀（`foundation-starter-cache` 实际绑定键；旧文档写的 `foundation.redis.prefix` 从未被代码读取） |
 | `foundation.keycloak.server-url` | `FOUNDATION_KEYCLOAK_URL` | `http://localhost:8180` | Keycloak 基址（管理接口） |
-| `foundation.keycloak.realm` | `FOUNDATION_KEYCLOAK_REALM` | `enterprise` | 单一 realm |
+| `foundation.keycloak.realm` | `FOUNDATION_KEYCLOAK_REALM` | `enterprise`（由 id 派生） | 单一 realm；见 §4.1 部署命名空间 |
 | `foundation.keycloak.client-id` | `FOUNDATION_KEYCLOAK_CLIENT_ID` | `foundation-admin` | 服务账号 client_id |
 | `foundation.keycloak.client-secret` | `FOUNDATION_KEYCLOAK_SECRET` | 空 | 服务账号密钥（生产必填） |
 | `foundation.mq.name-server` | `FOUNDATION_MQ_NAME_SERVER` | — | RocketMQ NameServer 地址 |
-| `foundation.event.topic` | `FOUNDATION_EVENT_TOPIC` | `fdn-events` | 事件主题（前缀 fdn） |
+| `foundation.event.topic` | `FOUNDATION_EVENT_TOPIC` | `fdn-events`（由 id 派生） | outbox 事件主题；见 §4.1 |
 | `foundation.storage.endpoint` | `FOUNDATION_STORAGE_ENDPOINT` | — | 对象存储地址 |
-| `foundation.storage.bucket-prefix` | `FOUNDATION_STORAGE_BUCKET_PREFIX` | `fdn-` | bucket 前缀 |
+| `foundation.file.storage.bucket` | `FOUNDATION_STORAGE_BUCKET` | `fdn-app_foundation`（由 id 派生） | 完整桶名（`FileProperties` 实际绑定键；旧文档写的 `foundation.storage.bucket-prefix` 从未被代码读取） |
+| `foundation.deployment-id` | `FOUNDATION_DEPLOYMENT_ID` | `default` | 部署命名空间标识，见 §4.1 |
 | `foundation.server.base-url` | `FOUNDATION_SERVER_BASE_URL` | — | 对外地址（回调与深链） |
 | `foundation.sso.public-url` | `FOUNDATION_SSO_PUBLIC_URL` | — | OIDC issuer，须与令牌 `iss` 完全一致 |
 | `foundation.authz.snapshot-cache-ttl` | `FOUNDATION_AUTHZ_SNAPSHOT_CACHE_TTL` | `5m` | 快照缓存 TTL（S15 §11.3） |
 | `foundation.audit.retention-days` | `FOUNDATION_AUDIT_RETENTION_DAYS` | `180` | 在线保留天数（SEC 类见 ADR-072） |
-| `foundation.secret.master-key-ref` | `FOUNDATION_SECRET_MASTER_KEY_REF` | — | 来自 `SecretStoreAdapter` |
-| `foundation.param.master-key` | `FOUNDATION_PARAM_MASTER_KEY` | 空 | 参数加密主密钥，**生产缺失启动失败** |
+| `foundation.param.master-key` | `FOUNDATION_PARAM_MASTER_KEY` | 空 | 敏感参数加密主密钥（`ParamProperties`），**生产缺失启动失败** |
+| `foundation.org.person.master-key` | `FOUNDATION_ORG_PERSON_MASTER_KEY` | 空 | 人员手机 / 邮箱加密主密钥（`OrgPersonProperties`） |
+| `foundation.secret.master-key-ref` | `FOUNDATION_SECRET_MASTER_KEY_REF` | — | **历史占位，代码未绑定**：`SecretStoreAdapter` 只出现在 Javadoc 设想中，配置此键不会生效。是否补实现或彻底删除待设计侧决策，见 `docs/adaptation/replacement-points.md` |
 | `foundation.dict.cache-ttl` | `FOUNDATION_DICT_CACHE_TTL` | `5m` | 字典缓存 TTL |
 | `foundation.app.default-auth-mode` | `FOUNDATION_APP_DEFAULT_AUTH_MODE` | `CONCENTRATED` | 应用默认授权模式 |
 
 > 部署面（`FOUNDATION_SERVER_BASE_URL`、`FOUNDATION_SSO_PUBLIC_URL`、`FOUNDATION_MQ_NAME_SERVER`、
 > `FOUNDATION_STORAGE_*`、`FOUNDATION_AUTHZ_SNAPSHOT_CACHE_TTL`、`FOUNDATION_AUDIT_RETENTION_DAYS`、
-> `FOUNDATION_SECRET_MASTER_KEY_REF`、`FOUNDATION_REDIS_PREFIX`）在 compose 中已给出 dev 默认，
-> 生产必须覆盖为真实值。
+> `FOUNDATION_PARAM_MASTER_KEY`）在 compose 中已给出 dev 默认，生产必须覆盖为真实值。
+> **`FOUNDATION_SECRET_MASTER_KEY_REF` 与 `FOUNDATION_REDIS_PREFIX` 是历史占位 / 死键**，代码不读取：
+> 缓存键前缀由 `foundation.deployment-id` 派生（见 `docs/adaptation/deployment-namespace.md`），
+> 不要用这两个变量配置生产。
+
+## 4.1 部署命名空间（ADP-07 / P5）
+
+同一套镜像在多个环境 / 多套部署中共用 PostgreSQL、Redis、RocketMQ、MinIO、Keycloak 时，
+必须设置 `FOUNDATION_DEPLOYMENT_ID`，否则 realm、事件主题、缓存键、桶名会互相串。
+
+| 资源 | `default`（存量行为，逐字不变） | `prod-a` |
+| --- | --- | --- |
+| Keycloak realm | `enterprise` | `enterprise-prod-a` |
+| 事件主题 | `fdn-events` | `fdn-events-prod-a` |
+| 缓存/锁/限流键前缀 | `fdn:` | `fdn:prod-a:` |
+| 对象存储桶 | `fdn-app_foundation` | `fdn-prod-a-app_foundation` |
+| 库 schema / 库名 | `foundation` | `foundation-prod-a` |
+| issuer / JWKS | `.../realms/enterprise` | `.../realms/enterprise-prod-a` |
+
+**一套命令完成派生**（在仓库根目录）：
+
+```bash
+eval "$(bash deploy/init/render-deployment.sh --id prod-a)"
+docker compose -f deploy/compose.yml up -d --build
+```
+
+脚本会：① 校验 id 格式（小写字母/数字/连字符，1〜31 位，不以连字符开头结尾）；
+② 生成 `deploy/init/foundation-realm.prod-a.json`（只替换顶层 `realm` 字段）；
+③ 输出上表各项的 `export`，compose 通过 `FOUNDATION_REALM_FILE` 挂载生成文件。
+`FOUNDATION_SSO_PUBLIC_URL` 与 `FOUNDATION_KEYCLOAK_URL` 请按实际域名覆盖，但 realm 段必须与派生值一致。
+
+**优先级**：显式环境变量（`FOUNDATION_KEYCLOAK_REALM` / `FOUNDATION_EVENT_TOPIC` /
+`FOUNDATION_STORAGE_BUCKET` / `FOUNDATION_CACHE_KEY_PREFIX`）> `deployment-id` 派生值 >
+历史字面量。服务端由 `DeploymentNamespaceEnvironmentPostProcessor` 以最低优先级属性源注入派生值，
+接入方业务项目由 `foundation-starter-core` 的 `DeploymentNamespace` Bean 得到同一套规则。
+
+**边界**：`deployment-id` 解决的是同一客户多套部署/多环境的命名冲突，**不是多租户隔离**；
+数据模型不引入任何租户隔离字段，集团多公司仍用组织树表达（ADR-029 第 60 条、36 号规划 §6）。
+库 schema 与 Flyway 号段仍由部署方为每套部署独立准备，脚本只给出命名，不自动建库。
+
+> 尚未自动化的部分：同一镜像两套 id 同时起库 / 键 / topic / bucket 互不干扰的端到端验证
+> （`GaReplaceSpiGateIT`），以及 Helm `values-*.yaml` 按 id 生成，均留给 GA 闸门批次。
 
 ## 5. 单点登录域名与证书（F-11 §3.6）
 
 | 项 | 设计 |
 | --- | --- |
 | 域名 | `sso.<domain>` → Keycloak（issuer）；`foundation.<domain>` → Foundation 服务与管理台/门户 |
-| realm | `enterprise`；issuer = `https://sso.<domain>/realms/enterprise`，须与令牌 `iss` 完全一致 |
+| realm | 默认 `enterprise`（非 default 部署为 `enterprise-{id}`，见 §4.1）；issuer = `https://sso.<domain>/realms/<realm>`，须与令牌 `iss` 完全一致 |
 | 回调 | 各应用的 redirect URI 由 BAS-04 登记应用时自动开通 OIDC 客户端，不在证书运维里手工维护 |
 | 证书 | TLS 在 Ingress / 网关终止；生产用客户 CA 或 cert-manager；集群内可 HTTP，**对外必须 HTTPS**（S15 §15） |
 
@@ -142,7 +184,7 @@ pg_dump -Fc -U fdn_owner -h $env:PGHOST -d foundation -f "foundation-$(Get-Date 
 pg_dump -Fc -U fdn_owner -h $env:PGHOST -d keycloak   -f "keycloak-$(Get-Date -Format yyyyMMdd).dump"
 ```
 
-演练记录模板见 [docs/ops/备份恢复与升级回滚演练记录.md](../../docs/ops/备份恢复与升级回滚演练记录.md)
+演练记录模板见 [docs/ops/备份恢复与升级回滚演练记录.md](../docs/ops/备份恢复与升级回滚演练记录.md)
 （当前为**模板，尚未演练**；`BackupRestoreDrill` 演练在具备 Docker 环境后执行）。
 
 ## 8. 升级与回滚（F-11 §3.9）

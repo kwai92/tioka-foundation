@@ -1,5 +1,6 @@
 package com.foundation.file.config;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import com.foundation.file.api.FileApi;
 import com.foundation.file.api.FileController;
 import com.foundation.file.api.FileRefApi;
@@ -40,6 +41,7 @@ import org.springframework.context.annotation.Bean;
  * {@code foundation.file.storage.kind} 选择（默认本地磁盘，可切 S3 兼容对象存储）。
  */
 @AutoConfiguration
+@ConditionalOnProperty(prefix = "foundation.server.domains", name = "file", havingValue = "true", matchIfMissing = true)
 @AutoConfigureAfter(name = "com.foundation.starter.data.config.FoundationDataAutoConfiguration")
 @ConditionalOnBean(SqlSessionFactory.class)
 @EnableConfigurationProperties(FileProperties.class)

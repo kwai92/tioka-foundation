@@ -10,6 +10,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import com.foundation.starter.core.condition.ConditionalOnFoundationCapability;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
@@ -28,6 +29,7 @@ import org.springframework.context.annotation.Bean;
  * <p>依赖 {@link SqlSessionFactory}：未启用数据源的上下文（如纯配置绑定测试）整块跳过。
  */
 @AutoConfiguration(after = MybatisPlusAutoConfiguration.class)
+@ConditionalOnFoundationCapability("data")
 @ConditionalOnBean(SqlSessionFactory.class)
 @MapperScan(basePackages = "com.foundation", annotationClass = Mapper.class)
 public class FoundationDataAutoConfiguration {

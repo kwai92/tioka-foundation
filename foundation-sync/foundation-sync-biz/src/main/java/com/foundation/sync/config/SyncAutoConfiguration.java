@@ -1,5 +1,6 @@
 package com.foundation.sync.config;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import com.foundation.common.api.event.EventProperties;
 import com.foundation.common.api.event.OutboxAppender;
 import com.foundation.sync.api.FieldMappingController;
@@ -72,6 +73,7 @@ import java.util.List;
  * 未装载时注入空集合：能力缺失由引擎标注，不静默跳过。
  */
 @AutoConfiguration
+@ConditionalOnProperty(prefix = "foundation.server.domains", name = "sync", havingValue = "true", matchIfMissing = true)
 @AutoConfigureAfter(name = {
         "com.foundation.starter.data.config.FoundationDataAutoConfiguration",
         "com.foundation.common.config.CommonAutoConfiguration"})

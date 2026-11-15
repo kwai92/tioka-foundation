@@ -5,7 +5,6 @@ import com.foundation.starter.client.cache.TtlCache;
 import com.foundation.starter.client.calendar.CalendarClient;
 import com.foundation.starter.client.calendar.HttpCalendarClient;
 import com.foundation.starter.client.dict.DictClient;
-import com.foundation.starter.client.dict.DictItem;
 import com.foundation.starter.client.dict.HttpDictClient;
 import com.foundation.starter.client.http.CircuitBreaker;
 import com.foundation.starter.client.http.FoundationHttpClient;
@@ -15,32 +14,37 @@ import com.foundation.starter.client.file.HttpFileClient;
 import com.foundation.starter.client.org.HttpOrgClient;
 import com.foundation.starter.client.org.HttpPersonClient;
 import com.foundation.starter.client.org.OrgClient;
-import com.foundation.starter.client.org.OrgUnit;
-import com.foundation.starter.client.org.Person;
 import com.foundation.starter.client.org.PersonClient;
 import com.foundation.starter.client.param.HttpParamClient;
 import com.foundation.starter.client.param.ParamClient;
 import com.foundation.starter.client.sequence.HttpSequenceClient;
 import com.foundation.starter.client.sequence.SequenceClient;
+import com.foundation.starter.core.condition.ConditionalOnFoundationRuntimeMode;
 import com.foundation.starter.core.config.FoundationProperties;
 import com.foundation.starter.core.http.BearerTokenSupplier;
+import com.foundation.starter.core.runtime.FoundationRuntimeMode;
 import okhttp3.OkHttpClient;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import com.foundation.starter.core.condition.ConditionalOnFoundationCapability;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 
-import java.util.List;
+import java.time.Clock;
 
 /**
  * 中台客户端自动装配（F-07 BAS-08 §7、§8、§9、§11）。
  *
  * <p>提供 {@link BearerTokenSupplier}（服务账号令牌）供 {@code security} / {@code audit} 复用，
  * 使三者之间**只依赖 core**（S15 §5.2）。缓存未引入 Redis 时退化为进程内 TTL 缓存（F-07 §12）。
+ *
+ * <p>ADP-08 起只在 {@link FoundationRuntimeMode#FOUNDATION}（缺省）模式装配；
+ * {@code LOCAL} / {@code SELF_MANAGED} 由 {@link LocalFoundationClientAutoConfiguration}
+ * 接管，避免本地模式仍保留指向中台的出站通道。
  */
 @AutoConfiguration
-@ConditionalOnProperty(prefix = "foundation", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnFoundationCapability("client")
+@ConditionalOnFoundationRuntimeMode(FoundationRuntimeMode.FOUNDATION)
 @EnableConfigurationProperties(FoundationClientProperties.class)
 public class FoundationClientAutoConfiguration {
 
@@ -94,7 +98,7 @@ public class FoundationClientAutoConfiguration {
                                  FoundationClientProperties properties,
                                  FoundationProperties foundationProperties) {
         return new HttpDictClient(http,
-                new TtlCache<String, List<DictItem>>(properties.getDict().getCacheTtl().toMillis()),
+                cache(properties, "dict", properties.getDict().getCacheTtl().toMillis()),
                 foundationProperties.getAppCode());
     }
 
@@ -102,7 +106,7 @@ public class FoundationClientAutoConfiguration {
     @ConditionalOnMissingBean
     public ParamClient paramClient(FoundationHttpClient http, FoundationClientProperties properties) {
         return new HttpParamClient(http,
-                new TtlCache<String, HttpParamClient.ParamEntry>(properties.getParam().getCacheTtl().toMillis()));
+                cache(properties, "param", properties.getParam().getCacheTtl().toMillis()));
     }
 
     // ---------- §8 组织与人员 ----------
@@ -112,8 +116,8 @@ public class FoundationClientAutoConfiguration {
     public OrgClient orgClient(FoundationHttpClient http, FoundationClientProperties properties) {
         long ttl = properties.getOrg().getCacheTtl().toMillis();
         return new HttpOrgClient(http,
-                new TtlCache<String, OrgUnit>(ttl),
-                new TtlCache<String, List<OrgUnit>>(ttl));
+                cache(properties, "org", ttl),
+                cache(properties, "org", ttl));
     }
 
     @Bean
@@ -121,8 +125,8 @@ public class FoundationClientAutoConfiguration {
     public PersonClient personClient(FoundationHttpClient http, FoundationClientProperties properties) {
         long ttl = properties.getPerson().getCacheTtl().toMillis();
         return new HttpPersonClient(http,
-                new TtlCache<String, Person>(ttl),
-                new TtlCache<String, List<Person>>(ttl));
+                cache(properties, "person", ttl),
+                cache(properties, "person", ttl));
     }
 
     // ---------- §10 文件 ----------
@@ -145,5 +149,18 @@ public class FoundationClientAutoConfiguration {
     @ConditionalOnMissingBean
     public SequenceClient sequenceClient(FoundationHttpClient http) {
         return new HttpSequenceClient(http);
+    }
+
+    /**
+     * 按能力注入只读缓存的降级策略（ADP-08）。
+     *
+     * <p>白名单外的能力（如 {@code security} / {@code authz}）无论全局配置如何都得到
+     * {@link DegradePolicy#FAIL_CLOSED}，身份与授权类不允许 fail-open。
+     */
+    private static <V> TtlCache<String, V> cache(FoundationClientProperties properties,
+                                                 String capability, long ttlMillis) {
+        FoundationClientProperties.Degrade degrade = properties.getClient().getDegrade();
+        return new TtlCache<>(ttlMillis, Clock.systemUTC(),
+                degrade.policyFor(capability), degrade.maxStaleMillis());
     }
 }
