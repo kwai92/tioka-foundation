@@ -10,6 +10,7 @@ import com.foundation.starter.security.permission.PermissionAspect;
 import com.foundation.starter.security.principal.CurrentUserArgumentResolver;
 import com.foundation.starter.security.principal.JwtPrincipalResolver;
 import com.foundation.starter.security.principal.OpaqueTokenPrincipalResolver;
+import com.foundation.starter.security.principal.PrincipalAuthenticationFilter;
 import com.foundation.starter.security.principal.PrincipalResolver;
 import com.foundation.starter.security.principal.RequestHeaderTokenExtractor;
 import com.foundation.starter.security.principal.TokenExtractor;
@@ -30,9 +31,13 @@ import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
+import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -146,6 +151,33 @@ public class FoundationSecurityAutoConfiguration {
         @Override
         public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
             resolvers.add(new CurrentUserArgumentResolver());
+        }
+    }
+
+    /**
+     * Servlet 场景下注册请求边界身份过滤器（F-07 §2）：把令牌解析结果写入 {@code PrincipalHolder}，
+     * 请求结束清空。早于请求日志（+10）与幂等（+20），使二者都能读到当前身份。
+     */
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(OncePerRequestFilter.class)
+    @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
+    static class ServletPrincipalFilterConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean
+        public PrincipalAuthenticationFilter principalAuthenticationFilter(PrincipalResolver principalResolver) {
+            return new PrincipalAuthenticationFilter(principalResolver);
+        }
+
+        @Bean
+        @ConditionalOnMissingBean(name = "principalAuthenticationFilterRegistration")
+        public FilterRegistrationBean<PrincipalAuthenticationFilter> principalAuthenticationFilterRegistration(
+                PrincipalAuthenticationFilter filter) {
+            FilterRegistrationBean<PrincipalAuthenticationFilter> registration =
+                    new FilterRegistrationBean<>(filter);
+            registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 5);
+            registration.setUrlPatterns(List.of("/*"));
+            return registration;
         }
     }
 }
