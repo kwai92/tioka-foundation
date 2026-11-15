@@ -1,0 +1,6 @@
+apiVersion: v2
+name: {app}
+description: {app} 子系统 Helm Chart（BAS-25 模板片段）
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

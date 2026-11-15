@@ -1,0 +1,27 @@
+server:
+  port: ${APP_SERVER_PORT:8080}
+  # 优雅停机：先摘流量再退出（S15 §16 部署与运维）
+  shutdown: graceful
+
+spring:
+  application:
+    name: {app}
+  datasource:
+    url: ${APP_DB_URL:jdbc:postgresql://localhost:5432/{app}}
+    username: ${APP_DB_USERNAME:postgres}
+    password: ${APP_DB_PASSWORD:postgres}
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jackson:
+    # 统一 JSON 输出：null 字段不下发（00-施工总纲 §2.2）
+    default-property-inclusion: non_null
+
+foundation:
+  client:
+    # 中台地址（mode=foundation 时必填）
+    base-url: ${FOUNDATION_BASE_URL:}
+    # 应用编码（在 Foundation 登记的应用编码）
+    app-code: {app}
+    # 服务账号（只写不读，环境变量注入）
+    service-account: ${FOUNDATION_SERVICE_ACCOUNT:}
