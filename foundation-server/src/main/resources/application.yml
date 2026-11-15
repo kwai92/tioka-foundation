@@ -45,6 +45,12 @@ foundation:
     client-secret: ${FOUNDATION_KEYCLOAK_SECRET:}
     connect-timeout: 3s
     read-timeout: 5s
+  security:
+    # 令牌来源（F-07 §2）：jwt = 作资源服务器校验 Keycloak 签发的令牌
+    token-source: "${FOUNDATION_TOKEN_SOURCE:jwt}"
+    # 验签公钥集与签发者：默认指向同一 Keycloak 的 realm 端点（F-07 §2、ADR-029 第 32 条）
+    jwk-set-uri: "${FOUNDATION_SECURITY_JWK_SET_URI:${FOUNDATION_KEYCLOAK_URL:http://localhost:8180}/realms/enterprise/protocol/openid-connect/certs}"
+    issuer: "${FOUNDATION_SECURITY_ISSUER:${FOUNDATION_KEYCLOAK_URL:http://localhost:8180}/realms/enterprise}"
   dict:
     cache-ttl: ${FOUNDATION_DICT_CACHE_TTL:5m}
   param:

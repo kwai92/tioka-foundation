@@ -26,6 +26,14 @@
         </dependency>
         <dependency>
             <groupId>com.foundation</groupId>
+            <artifactId>foundation-org-biz</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-account-biz</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.foundation</groupId>
             <artifactId>foundation-authz-biz</artifactId>
         </dependency>
         <dependency>
@@ -69,6 +77,16 @@
         <dependency>
             <groupId>com.foundation</groupId>
             <artifactId>foundation-starter-data</artifactId>
+        </dependency>
+        <!-- 权限注解与主体上下文（@RequirePermission / PrincipalHolder） -->
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-starter-security</artifactId>
+        </dependency>
+        <!-- Web 装配（异常映射、幂等键、脱敏序列化等） -->
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-starter-web</artifactId>
         </dependency>
         <!-- 事件发布：outbox 表写入与中继（F-05 §4；common-biz 的 outbox 依赖其 appender） -->
         <dependency>
