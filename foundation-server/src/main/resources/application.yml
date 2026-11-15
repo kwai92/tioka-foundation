@@ -53,3 +53,15 @@ foundation:
     master-key: ${FOUNDATION_PARAM_MASTER_KEY:}
   event:
     topic: ${FOUNDATION_EVENT_TOPIC:fdn-events}
+
+# 存活/就绪探针（BAS-21 §3.10）：/actuator/health/liveness、/actuator/health/readiness
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: when-authorized

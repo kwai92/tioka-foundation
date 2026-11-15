@@ -1,0 +1,56 @@
+{{- if .Values.ingress.enabled }}
+# Ingress：sso.<domain> → Keycloak（issuer），foundation.<domain> → Foundation 服务 / 管理台（F-11 §3.6）
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: foundation
+  labels:
+    {{- include "foundation.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- with .Values.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.ssoHost }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: foundation-keycloak
+                port:
+                  number: 8180
+    - host: {{ .Values.ingress.foundationHost }}
+      http:
+        paths:
+          - path: /actuator
+            pathType: Prefix
+            backend:
+              service:
+                name: foundation
+                port:
+                  number: 8081
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: foundation
+                port:
+                  number: 8081
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: foundation-ui
+                port:
+                  number: 80
+{{- end }}

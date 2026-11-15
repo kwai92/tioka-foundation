@@ -5,6 +5,8 @@ import com.foundation.common.api.keycloak.KeycloakLoginEventAdmin;
 import com.foundation.common.api.keycloak.KeycloakOidcClientAdmin;
 import com.foundation.common.api.keycloak.KeycloakRealmAdmin;
 import com.foundation.common.api.keycloak.KeycloakUserAdmin;
+import org.springframework.boot.actuate.health.HealthIndicator;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -49,5 +51,13 @@ public class KeycloakClientConfiguration {
     public KeycloakRealmAdmin keycloakRealmAdmin(KeycloakProperties properties,
                                                  KeycloakAdminClient adminClient, ObjectMapper json) {
         return new KeycloakRealmAdminImpl(properties, adminClient, json);
+    }
+
+    /** Keycloak 可达性健康指示器（bean 名 {@code keycloak}）；仅在类路径有 actuator 时装配。 */
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnClass(HealthIndicator.class)
+    public KeycloakHealthIndicator keycloak(KeycloakAdminClient adminClient) {
+        return new KeycloakHealthIndicator(adminClient);
     }
 }

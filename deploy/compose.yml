@@ -1,0 +1,183 @@
+# Foundation 自包含部署剖面 —— BAS-21 / F-11 §3.2
+#
+# 本文件是 F-11 §3.2 中 `compose.foundation.yml` 叠加剖面的「自包含等价物」：因本仓库是
+# Foundation 独立仓库（ADR-051 第 1 条），把 Foundation、Keycloak 及其依赖中间件写在同一个
+# 文件里，空环境一条命令起全套：
+#
+#   docker compose -f deploy/compose.yml up -d --build
+#
+# 中间件只使用 PostgreSQL / Redis / RocketMQ / MinIO / Keycloak（不引入未经 ADR 许可的新中间件）。
+# 启动顺序：keycloak → foundation-migrate → foundation-server → foundation-ui
+# 账号分离：迁移用属主账号 fdn_owner（独立容器），运行时用 fdn_app（见 deploy/init/foundation-db.sql）。
+# 生产必须覆盖所有带 dev 默认的口令与密钥（见 deploy/README.md §3）。
+
+name: foundation
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      # 建库脚本（init/foundation-db.sql）读取的属主 / 运行账号口令
+      FDN_OWNER_PASSWORD: ${FDN_OWNER_PASSWORD:-fdn_owner_dev}
+      FDN_APP_PASSWORD: ${FDN_APP_PASSWORD:-fdn_app_dev}
+    ports:
+      - "5432:5432"
+    volumes:
+      - foundation_pg:/var/lib/postgresql/data
+      - ./init/01-pgvector.sql:/docker-entrypoint-initdb.d/01-pgvector.sql:ro
+      - ./init/foundation-db.sql:/docker-entrypoint-initdb.d/02-foundation-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Keycloak 启动较慢，探针 initialDelay 与重试次数按 F-11 §3.10 对齐（10s / 12 次）
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_HTTP_PORT: "8180"
+    ports:
+      - "8180:8180"
+    volumes:
+      - ./init/foundation-realm.json:/opt/keycloak/data/import/foundation-realm.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8180"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  rocketmq-namesrv:
+    image: apache/rocketmq:5.3.1
+    command: sh mqnamesrv
+    ports:
+      - "9876:9876"
+
+  rocketmq-broker:
+    image: apache/rocketmq:5.3.1
+    depends_on:
+      - rocketmq-namesrv
+    environment:
+      NAMESRV_ADDR: rocketmq-namesrv:9876
+    command:
+      - sh
+      - -c
+      - >
+        echo "brokerIP1=$$(hostname -i)" >> ../conf/broker.conf &&
+        echo "autoCreateTopicEnable=true" >> ../conf/broker.conf &&
+        sh mqbroker -n rocketmq-namesrv:9876 -c ../conf/broker.conf
+    ports:
+      - "10911:10911"
+
+  minio:
+    image: minio/minio:RELEASE.2024-06-13T22-53-53Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - foundation_minio:/data
+
+  # 独立迁移容器：以属主账号 fdn_owner 执行 Flyway（应用等迁移成功后再启动，F-11 §3.4）
+  foundation-migrate:
+    image: flyway/flyway:10-alpine
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    environment:
+      FLYWAY_URL: jdbc:postgresql://postgres:5432/foundation
+      FLYWAY_USER: fdn_owner
+      FLYWAY_PASSWORD: ${FDN_OWNER_PASSWORD:-fdn_owner_dev}
+      FLYWAY_LOCATIONS: filesystem:/flyway/sql
+      FLYWAY_CONNECT_RETRIES: "10"
+    volumes:
+      - ../foundation-server/src/main/resources/db/migration:/flyway/sql:ro
+    command: ["migrate"]
+
+  foundation-server:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.foundation
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      foundation-migrate:
+        condition: service_completed_successfully
+    environment:
+      # server.port
+      FOUNDATION_SERVER_PORT: "8081"
+      # spring.datasource.* / foundation.db.*（运行时账号 fdn_app）
+      FOUNDATION_DB_URL: jdbc:postgresql://postgres:5432/foundation
+      FOUNDATION_DB_USERNAME: fdn_app
+      FOUNDATION_DB_PASSWORD: ${FDN_APP_PASSWORD:-fdn_app_dev}
+      # 迁移由 foundation-migrate 容器执行，应用内 Flyway 关闭
+      FOUNDATION_FLYWAY_ENABLED: "false"
+      # spring.data.redis.*
+      FOUNDATION_REDIS_HOST: redis
+      FOUNDATION_REDIS_PREFIX: fdn
+      # foundation.keycloak.*
+      FOUNDATION_KEYCLOAK_URL: http://keycloak:8180
+      FOUNDATION_KEYCLOAK_REALM: enterprise
+      FOUNDATION_KEYCLOAK_CLIENT_ID: foundation-admin
+      FOUNDATION_KEYCLOAK_SECRET: ${FOUNDATION_KEYCLOAK_SECRET:-}
+      # foundation.event.topic
+      FOUNDATION_EVENT_TOPIC: fdn-events
+      # foundation.mq.*
+      FOUNDATION_MQ_NAME_SERVER: rocketmq-namesrv:9876
+      # foundation.param.master-key（生产必填，缺失启动失败）
+      FOUNDATION_PARAM_MASTER_KEY: ${FOUNDATION_PARAM_MASTER_KEY:-}
+      # foundation.server.base-url / sso.public-url
+      FOUNDATION_SERVER_BASE_URL: ${FOUNDATION_SERVER_BASE_URL:-http://localhost:8081}
+      FOUNDATION_SSO_PUBLIC_URL: ${FOUNDATION_SSO_PUBLIC_URL:-http://localhost:8180/realms/enterprise}
+      # foundation.storage.*
+      FOUNDATION_STORAGE_ENDPOINT: ${FOUNDATION_STORAGE_ENDPOINT:-http://minio:9000}
+      FOUNDATION_STORAGE_BUCKET_PREFIX: ${FOUNDATION_STORAGE_BUCKET_PREFIX:-fdn-}
+      # foundation.authz.* / foundation.audit.*
+      FOUNDATION_AUTHZ_SNAPSHOT_CACHE_TTL: ${FOUNDATION_AUTHZ_SNAPSHOT_CACHE_TTL:-5m}
+      FOUNDATION_AUDIT_RETENTION_DAYS: ${FOUNDATION_AUDIT_RETENTION_DAYS:-180}
+      # foundation.secret.master-key-ref（来自 SecretStoreAdapter，生产必填）
+      FOUNDATION_SECRET_MASTER_KEY_REF: ${FOUNDATION_SECRET_MASTER_KEY_REF:-}
+    ports:
+      - "8081:8081"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8081/actuator/health/liveness"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  foundation-ui:
+    build: ./ui
+    depends_on:
+      foundation-server:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+
+volumes:
+  foundation_pg:
+  foundation_minio:

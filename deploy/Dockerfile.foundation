@@ -1,0 +1,26 @@
+# Foundation 服务镜像 —— BAS-21 / F-11 §3.2（与 deploy/Dockerfile 体例对齐）
+# 构建上下文为仓库根（compose 的 context: ..），故 COPY 路径以仓库根为基准：
+#   docker build -f deploy/Dockerfile.foundation -t foundation:<tag> .
+FROM eclipse-temurin:17-jre
+WORKDIR /app
+
+# GOV-08：OpenTelemetry Java Agent 1.33.x（与 Tioka deploy/Dockerfile 同版本）
+ADD https://ghproxy.net/https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.33.5/opentelemetry-javaagent.jar /app/opentelemetry-javaagent.jar
+
+# 健康检查用 curl（compose healthcheck 调 /actuator/health/liveness）
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+
+COPY foundation-server/target/foundation-server-*.jar /app/app.jar
+
+ENV JAVA_TOOL_OPTIONS="-javaagent:/app/opentelemetry-javaagent.jar -Duser.timezone=UTC"
+ENV OTEL_SERVICE_NAME=foundation
+ENV OTEL_TRACES_EXPORTER=otlp
+ENV OTEL_METRICS_EXPORTER=none
+ENV OTEL_LOGS_EXPORTER=none
+
+# 非 root 运行
+RUN useradd --system --uid 10001 --create-home foundation
+USER 10001
+
+EXPOSE 8081
+ENTRYPOINT ["java","-jar","/app/app.jar"]

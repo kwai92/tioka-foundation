@@ -1,0 +1,100 @@
+# Foundation Helm 默认值（开发 / 单副本剖面）—— BAS-21 / F-11 §3.2
+# 生产用 values-prod.yaml 覆盖（副本数 ≥2）。config 与 deploy/compose.yml 共用同一套 foundation.* 键名。
+
+image:
+  repository: foundation/foundation-server
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+keycloak:
+  image:
+    repository: quay.io/keycloak/keycloak
+    tag: "24.0"
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+
+ui:
+  image:
+    repository: foundation/foundation-ui
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+
+# 非敏感配置（渲染进 ConfigMap：foundation-config）
+config:
+  FOUNDATION_SERVER_PORT: "8081"
+  FOUNDATION_FLYWAY_ENABLED: "false"
+  FOUNDATION_REDIS_HOST: redis
+  FOUNDATION_REDIS_PREFIX: fdn
+  FOUNDATION_KEYCLOAK_URL: http://foundation-keycloak:8180
+  FOUNDATION_KEYCLOAK_REALM: enterprise
+  FOUNDATION_KEYCLOAK_CLIENT_ID: foundation-admin
+  FOUNDATION_EVENT_TOPIC: fdn-events
+  FOUNDATION_MQ_NAME_SERVER: rocketmq-namesrv:9876
+  FOUNDATION_SERVER_BASE_URL: http://foundation.local
+  FOUNDATION_SSO_PUBLIC_URL: https://sso.example.com/realms/enterprise
+  FOUNDATION_STORAGE_ENDPOINT: http://minio:9000
+  FOUNDATION_STORAGE_BUCKET_PREFIX: fdn-
+  FOUNDATION_AUTHZ_SNAPSHOT_CACHE_TTL: 5m
+  FOUNDATION_AUDIT_RETENTION_DAYS: "180"
+
+# 敏感配置：默认由本 chart 渲染进 Secret（foundation-secret）；生产请用 existingSecret 指向外部 Secret
+secret:
+  FOUNDATION_DB_URL: jdbc:postgresql://postgres:5432/foundation
+  FOUNDATION_DB_USERNAME: fdn_app
+  FOUNDATION_DB_PASSWORD: change-me-fdn-app
+  FOUNDATION_KEYCLOAK_SECRET: change-me-keycloak-secret
+  FOUNDATION_PARAM_MASTER_KEY: change-me-param-master-key
+  FOUNDATION_SECRET_MASTER_KEY_REF: change-me-secret-store-ref
+
+# 生产请设置为已有 Secret 名称（优先于 secret.*）
+existingSecret: ""
+
+# 迁移：独立 Job，以属主账号执行 Flyway，作为应用的启动前置
+migration:
+  enabled: true
+  image:
+    repository: flyway/flyway
+    tag: "10-alpine"
+    pullPolicy: IfNotPresent
+  dbUrl: jdbc:postgresql://postgres:5432/foundation
+  dbUser: fdn_owner
+  dbPassword: change-me-fdn-owner
+  locations: filesystem:/flyway/sql
+  connectRetries: "10"
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations: {}
+  ssoHost: sso.example.com
+  foundationHost: foundation.example.com
+  tls:
+    - secretName: foundation-tls
+      hosts:
+        - sso.example.com
+        - foundation.example.com
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    cpu: "2"
+    memory: 2Gi
+
+keycloakResources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    cpu: "2"
+    memory: 2Gi
+
+hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70

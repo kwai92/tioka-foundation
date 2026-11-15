@@ -1,0 +1,6 @@
+apiVersion: v2
+name: foundation
+description: Foundation（基础平台）—— 服务、管理台与门户静态资源、Keycloak（F-11 §3.2 / BAS-21）
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

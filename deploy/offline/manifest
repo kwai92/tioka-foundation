@@ -1,0 +1,21 @@
+# Foundation 离线镜像清单（约束 F43：镜像只有一份清单）
+#
+# 基线来自 M4 / FND-11（企业交付与审计）：PostgreSQL、Redis、RocketMQ、对象存储、Keycloak 等镜像
+# 已在 M4 登记，本文件不重复登记其版本来源，只做「同一份清单」的延伸。
+# BAS-21 只补登记 Foundation 与 Keycloak 相关项（Foundation 服务镜像、管理台/门户镜像、迁移工具），
+# 以及与部署直接相关的镜像条目。版本与测试基座 foundation-test/src/main/java/com/foundation/test/FoundationContainers.java 保持一致。
+#
+# 格式：镜像 | 版本 | 用途 | 登记工作项
+
+镜像 | 版本 | 用途 | 登记工作项
+--- | --- | --- | ---
+foundation/foundation-server | 0.1.0 | Foundation 服务镜像（构建产物，deploy/Dockerfile.foundation） | BAS-21（F-11 §3.2）
+foundation/foundation-ui | 0.1.0 | 管理台与门户静态资源镜像（nginx，deploy/ui） | BAS-21（F-11 §3.2）
+quay.io/keycloak/keycloak | 24.0 | 登录协议与令牌（单 realm enterprise） | BAS-21（F-11 §3.3）
+pgvector/pgvector | pg16 | PostgreSQL 16（含 pgvector）—— Foundation 库与 Keycloak 库 | M4/FND-11 沿用（F-11 §3.3）
+redis | 7-alpine | 快照缓存、Redis 锁、限流（键前缀 fdn） | M4/FND-11 沿用（F-11 §3.3）
+apache/rocketmq | 5.3.1 | 事件主题 fdn-events 的 outbox 投递 | M4/FND-11 沿用（F-11 §3.3）
+minio/minio | RELEASE.2024-06-13T22-53-53Z | 对象存储（审计归档、文件服务，bucket 前缀 fdn-） | M4/FND-11 沿用（F-11 §3.3）
+flyway/flyway | 10-alpine | 独立迁移工具容器（属主账号执行 Flyway） | BAS-21（F-11 §3.4）
+nginx | 1.27-alpine | 管理台与门户静态资源基镜像 | BAS-21（F-11 §3.2）
+opentelemetry-javaagent | 1.33.5 | OTel Java Agent（GOV-08，服务名 foundation） | M4/OBS-11 沿用（F-11 §3.11）

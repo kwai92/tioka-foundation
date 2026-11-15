@@ -1,0 +1,33 @@
+# Foundation Helm 生产剖面 —— BAS-21 / F-11 §3.2（生产 ≥2 副本）
+# 用法：helm upgrade --install foundation deploy/helm/foundation -n foundation --create-namespace \
+#         -f deploy/helm/foundation/values-prod.yaml --wait
+
+replicaCount: 2
+
+keycloak:
+  replicaCount: 2
+
+ui:
+  replicaCount: 2
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: internal-ca
+  ssoHost: sso.example.com
+  foundationHost: foundation.example.com
+  tls:
+    - secretName: foundation-tls
+      hosts:
+        - sso.example.com
+        - foundation.example.com
+
+# 生产必须指向外部 Secret，禁止把口令与主密钥明文写进值文件
+existingSecret: foundation-secret
+
+hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 8
+  targetCPUUtilizationPercentage: 60
