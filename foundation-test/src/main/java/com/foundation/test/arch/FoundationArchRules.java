@@ -47,6 +47,7 @@ public final class FoundationArchRules {
     private static final String PUBLIC_API = "com.foundation.starter.security.permission.PublicApi";
     private static final String OBJECT_MAPPER = "com.fasterxml.jackson.databind.ObjectMapper";
     private static final String REENTRANT_LOCK = "java.util.concurrent.locks.ReentrantLock";
+    private static final String SPRING_JDBC = "org.springframework.jdbc";
 
     private static final Set<String> DATA_OBJECT_BASES = Set.of(
             "com.foundation.starter.data.BaseDO",
@@ -171,6 +172,13 @@ public final class FoundationArchRules {
     public static final ArchRule noSynchronizedOrReentrantLock =
             CompositeArchRule.of(NO_SYNCHRONIZED_METHODS).and(NO_REENTRANT_LOCK_FIELDS)
                     .because("应用代码禁止 synchronized/ReentrantLock 做业务互斥（ADR-016 / F-02 BAS-24）")
+                    .allowEmptyShould(true);
+
+    /** 规则 9：业务代码禁用 JdbcTemplate，ORM 仅 MyBatis-Plus。 */
+    @ArchTest
+    public static final ArchRule noJdbcTemplateInBusinessCode =
+            noClasses().should().dependOnClassesThat().resideInAPackage(SPRING_JDBC + "..")
+                    .because("业务代码禁用 JdbcTemplate/spring-jdbc，ORM 仅 MyBatis-Plus（48-CS §4 / F-02 BAS-24）")
                     .allowEmptyShould(true);
 
     // ---------------------------------------------------------------------

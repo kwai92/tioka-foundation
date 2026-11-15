@@ -6,6 +6,7 @@ import com.foundation.test.fixture.controller.CleanController;
 import com.foundation.test.fixture.controller.OffCatalogController;
 import com.foundation.test.fixture.controller.UnannotatedController;
 import com.foundation.test.fixture.external.ControllerCallingExternalSystem;
+import com.foundation.test.fixture.jdbc.JdbcTemplateFixture;
 import com.foundation.test.fixture.json.ObjectMapperFixture;
 import com.foundation.test.fixture.modulea.api.AlphaApi;
 import com.foundation.test.fixture.modulea.application.AlphaService;
@@ -177,5 +178,21 @@ class FoundationArchRulesTest {
     @Test
     void noSynchronizedOrReentrantLock_passesForCleanApplicationService() {
         FoundationArchRules.noSynchronizedOrReentrantLock.check(importOf(CleanBetaService.class));
+    }
+
+    // ------------------------------------------------------------------
+    // 规则 9：业务代码禁用 JdbcTemplate
+    // ------------------------------------------------------------------
+
+    @Test
+    void noJdbcTemplateInBusinessCode_reportsJdbcTemplateUsage() {
+        assertThatThrownBy(() -> FoundationArchRules.noJdbcTemplateInBusinessCode
+                .check(importOf(JdbcTemplateFixture.class)))
+                .isInstanceOf(AssertionError.class);
+    }
+
+    @Test
+    void noJdbcTemplateInBusinessCode_passesForCleanApplicationService() {
+        FoundationArchRules.noJdbcTemplateInBusinessCode.check(importOf(CleanBetaService.class));
     }
 }
