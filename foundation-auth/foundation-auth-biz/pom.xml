@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.foundation</groupId>
+        <artifactId>foundation-auth</artifactId>
+        <version>${revision}</version>
+    </parent>
+
+    <artifactId>foundation-auth-biz</artifactId>
+    <name>foundation-auth-biz</name>
+    <description>登录方式实现（F-04 BAS-15 §：登录策略持久化、登录方式排序、Keycloak realm 级下发）</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-auth-api</artifactId>
+        </dependency>
+        <!-- 跨模块只依赖对方 -api：错误码、事件契约、outbox 追加器取自 common-api -->
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-common-api</artifactId>
+        </dependency>
+        <!-- Keycloak 管理客户端（KeycloakAdminClient 及 realm 级扩展） -->
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-common-biz</artifactId>
+        </dependency>
+        <!-- 权限注解与当前用户（@RequirePermission / PrincipalHolder） -->
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-starter-security</artifactId>
+        </dependency>
+        <!-- 关键写操作的审计上报（@Audited） -->
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-starter-audit</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
+        </dependency>
+        <!-- REST 层：Controller 与请求校验 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <!-- 持久化：48-CS §4「ORM 仅 MyBatis-Plus」，统一经 starter 装配 -->
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-starter-data</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <!-- 单元测试 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

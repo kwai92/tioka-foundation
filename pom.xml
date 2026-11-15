@@ -27,6 +27,7 @@
         <module>foundation-file</module>
         <module>foundation-calendar</module>
         <module>foundation-sequence</module>
+        <module>foundation-auth</module>
         <module>foundation-org</module>
         <module>foundation-sync</module>
         <module>foundation-account</module>

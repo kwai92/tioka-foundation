@@ -3,6 +3,7 @@ package com.foundation.keycloak;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.foundation.common.api.keycloak.KeycloakLoginEventAdmin;
 import com.foundation.common.api.keycloak.KeycloakOidcClientAdmin;
+import com.foundation.common.api.keycloak.KeycloakRealmAdmin;
 import com.foundation.common.api.keycloak.KeycloakUserAdmin;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -41,5 +42,12 @@ public class KeycloakClientConfiguration {
     public KeycloakLoginEventAdmin keycloakLoginEventAdmin(KeycloakProperties properties,
                                                           KeycloakAdminClient adminClient, ObjectMapper json) {
         return new KeycloakLoginEventAdminImpl(properties, adminClient, json);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public KeycloakRealmAdmin keycloakRealmAdmin(KeycloakProperties properties,
+                                                 KeycloakAdminClient adminClient, ObjectMapper json) {
+        return new KeycloakRealmAdminImpl(properties, adminClient, json);
     }
 }

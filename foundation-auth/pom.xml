@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.foundation</groupId>
+        <artifactId>foundation-parent</artifactId>
+        <version>${revision}</version>
+        <relativePath>../foundation-parent/pom.xml</relativePath>
+    </parent>
+
+    <artifactId>foundation-auth</artifactId>
+    <packaging>pom</packaging>
+    <name>foundation-auth</name>
+    <description>登录方式（F-04 BAS-15 §：登录策略与登录方式配置、Keycloak realm 级下发）——聚合器</description>
+
+    <modules>
+        <module>foundation-auth-api</module>
+        <module>foundation-auth-biz</module>
+    </modules>
+</project>
