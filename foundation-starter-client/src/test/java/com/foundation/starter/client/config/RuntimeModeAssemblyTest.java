@@ -1,6 +1,7 @@
 package com.foundation.starter.client.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.foundation.starter.client.authz.AuthorizationSnapshotClient;
 import com.foundation.starter.client.dict.DictClient;
 import com.foundation.starter.client.dict.HttpDictClient;
 import com.foundation.starter.client.http.FoundationHttpClient;
@@ -44,6 +45,14 @@ class RuntimeModeAssemblyTest {
             assertEquals(1, context.getBeansOfType(FoundationHttpClient.class).size());
             assertTrue(context.getBeansOfType(LocalFoundationData.class).isEmpty());
         });
+    }
+
+    @Test
+    void 授权快照客户端只在接入模式装配() {
+        runner.run(context -> assertEquals(1,
+                context.getBeansOfType(AuthorizationSnapshotClient.class).size()));
+        runner.withPropertyValues("foundation.client.mode=local")
+                .run(context -> assertTrue(context.getBeansOfType(AuthorizationSnapshotClient.class).isEmpty()));
     }
 
     @Test

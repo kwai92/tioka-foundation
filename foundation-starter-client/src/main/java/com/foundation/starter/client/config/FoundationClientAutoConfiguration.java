@@ -1,6 +1,8 @@
 package com.foundation.starter.client.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.foundation.starter.client.authz.AuthorizationSnapshotClient;
+import com.foundation.starter.client.authz.HttpAuthorizationSnapshotClient;
 import com.foundation.starter.client.cache.TtlCache;
 import com.foundation.starter.client.calendar.CalendarClient;
 import com.foundation.starter.client.calendar.HttpCalendarClient;
@@ -73,10 +75,11 @@ public class FoundationClientAutoConfiguration {
                                                      ObjectMapper objectMapper,
                                                      FoundationProperties foundationProperties,
                                                      CircuitBreaker foundationCircuitBreaker,
-                                                     FoundationClientProperties properties) {
+                                                     FoundationClientProperties properties,
+                                                     BearerTokenSupplier serviceAccountTokenProvider) {
         FoundationClientProperties.Client client = properties.getClient();
         return new FoundationHttpClient(foundationOkHttpClient, objectMapper,
-                foundationProperties.getBaseUrl(), null, foundationCircuitBreaker,
+                foundationProperties.getBaseUrl(), serviceAccountTokenProvider, foundationCircuitBreaker,
                 client.getRetry().getMaxAttempts(), client.getRetry().getBaseDelay().toMillis());
     }
 
@@ -88,6 +91,19 @@ public class FoundationClientAutoConfiguration {
                                                            FoundationProperties foundationProperties) {
         return new ServiceAccountTokenProvider(foundationOkHttpClient, objectMapper,
                 foundationProperties.getServiceAccount());
+    }
+
+    // ---------- F-06 BAS-07 授权快照（派生应用接入的唯一只读入口） ----------
+
+    /**
+     * 授权快照客户端只在接入模式装配；本地模式不注册，避免派生应用误以为还能连中台。
+     * 返回的权限项保持中台原始编码，语义映射由接入方负责。
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public AuthorizationSnapshotClient authorizationSnapshotClient(FoundationHttpClient http,
+                                                                    FoundationProperties foundationProperties) {
+        return new HttpAuthorizationSnapshotClient(http, foundationProperties.getAppCode());
     }
 
     // ---------- §7 字典与参数 ----------
