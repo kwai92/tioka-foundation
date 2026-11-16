@@ -46,10 +46,9 @@
     </modules>
 
     <properties>
-        <!-- 版本分轨：本分支（适配性剖面）为 0.2.0-adapt-SNAPSHOT，main 稳定基座仍为 0.1.0-SNAPSHOT。
-             三处 <revision>（本聚合器 / foundation-parent / foundation-dependencies）必须同值，
-             否则子模块 parent 坐标与 BOM managed 版本会错配，见 docs/version-tracks.md。 -->
-        <revision>0.2.0-adapt-SNAPSHOT</revision>
+        <!-- 单轨版本：三处 <revision>（本聚合器 / foundation-parent / foundation-dependencies）
+             必须同值，否则子模块 parent 坐标与 BOM managed 版本会错配，见 docs/version-tracks.md。 -->
+        <revision>0.2.0-SNAPSHOT</revision>
         <java.version>17</java.version>
         <maven.compiler.release>17</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

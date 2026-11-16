@@ -9,10 +9,10 @@
 | 要接入的新 Java 业务系统（画像 B） | [接入方与能力矩阵](#2-接入方画像) | [接入运行模式](adaptation/runtime-modes.md)、[能力开关矩阵](adaptation/capability-switches.md)、[替换点与不适配清单](adaptation/replacement-points.md)、[契约导览](contracts/README.md)、[降级策略](adaptation/degradation.md) |
 | 要接入的非 Java / 遗留系统（画像 C） | [接入方与能力矩阵](#2-接入方画像) | [Node 接入参考实现](../sdk-examples/node/README.md)（可直接拷贝）、[兼容矩阵](compatibility-matrix.md)、[契约导览](contracts/README.md)（版本头 / Webhook / SCIM）、[替换点](adaptation/replacement-points.md) |
 | 只要字典、参数、编号的轻量服务（画像 D） | [接入运行模式](adaptation/runtime-modes.md) §3.3 | [替换点与无中间件形态](adaptation/replacement-points.md) §3、[能力开关矩阵](adaptation/capability-switches.md)、[服务端装配 profile](adaptation/server-profiles.md) |
-| 要发版或改底座主干 | [版本分轨](version-tracks.md) | [契约导览](contracts/README.md)、[兼容矩阵](compatibility-matrix.md)、[适配性原则](#3-适配性原则)、[交付与离线包](delivery/README.md) |
+| 要发版或改底座主干 | [版本约定](version-tracks.md) | [契约导览](contracts/README.md)、[兼容矩阵](compatibility-matrix.md)、[适配性原则](#3-适配性原则)、[交付与离线包](delivery/README.md) |
 | 要部署 / 多套环境 | [部署命名空间](adaptation/deployment-namespace.md)、`../deploy/README.md` §4.1 | [交付与离线包](delivery/README.md)、`../docs/ops/备份恢复与升级回滚演练记录.md` |
 
-构建、版本发布、迁移号段见仓库根 [`README.md`](../README.md)；**下游该选哪个 Maven 坐标、改版本时要同步哪几处，见 [版本分轨](version-tracks.md)**。
+构建、版本发布、迁移号段见仓库根 [`README.md`](../README.md)；**当前唯一 Maven 坐标、改版本时要同步哪几处，见 [版本约定](version-tracks.md)**。
 
 ## 2. 接入方画像
 

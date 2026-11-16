@@ -20,9 +20,9 @@
     <description>Foundation 父工程 —— 编译参数、格式与静态检查、依赖收敛、发布配置</description>
 
     <!-- 与 foundation-build 保持一致；下游业务系统继承发布 pom 时这些属性仍可解析。
-         版本分轨：适配性剖面 0.2.0-adapt-SNAPSHOT，main 稳定基座 0.1.0-SNAPSHOT，见 docs/version-tracks.md。 -->
+         单轨版本：必须与聚合器、BOM 三处同值，见 docs/version-tracks.md。 -->
     <properties>
-        <revision>0.2.0-adapt-SNAPSHOT</revision>
+        <revision>0.2.0-SNAPSHOT</revision>
         <java.version>17</java.version>
         <maven.compiler.release>17</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

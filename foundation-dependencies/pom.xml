@@ -14,8 +14,8 @@
     <description>Foundation BOM —— 统一版本清单（只做 dependencyManagement，不引入依赖）</description>
 
     <properties>
-        <!-- 版本分轨：BOM 管理的 com.foundation:* 版本必须随适配性剖面走，见 docs/version-tracks.md。 -->
-        <revision>0.2.0-adapt-SNAPSHOT</revision>
+        <!-- 单轨版本：BOM 管理的 com.foundation:* 版本必须与聚合器、父工程同值，见 docs/version-tracks.md。 -->
+        <revision>0.2.0-SNAPSHOT</revision>
         <spring-boot.version>3.2.12</spring-boot.version>
         <mybatis-plus.version>3.5.9</mybatis-plus.version>
         <archunit.version>1.3.0</archunit.version>

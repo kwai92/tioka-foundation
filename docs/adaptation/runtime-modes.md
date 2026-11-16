@@ -105,12 +105,14 @@ foundation:
 - 组织按 `parent-id` 建树，`PersonClient.byOrgUnit(code, true)` 会递归展开整棵子树；`children(code)` 只返回直接下级。
 - 本地种子是**只读进程内视图**，不回源、不订阅事件、不引 Redis / RocketMQ / PG，可直接用于无中间件部署。
 
-## 4. 与 Tioka 双模式的关系（F1 接线时对齐）
+## 4. 与 Tioka 双模式的关系（F1 已接线）
 
-Tioka 侧的 `tioka.foundation.mode=local|foundation` 是**应用级**开关（F-02 BAS-26 / F-11 BAS-20），本键是**starter 级**契约。两者独立、不自动同步：
+Tioka 侧的 `tioka.foundation.mode=local|foundation` 是**应用级**开关（F-02 BAS-26 / F-11 BAS-20），本键是**starter 级**契约。两者**同源派生、不再各自配置**：
 
-- Tioka 切 `local` 时，应同时设置 `foundation.client.mode=local`（或 `foundation.enabled=false`），否则应用以为单飞、starter 却仍在连中台。
-- 建议由部署侧用同一个环境变量派生两个键，并在 36 号规划 F1 接线时把这条一致性写成启动期校验。**本批没有改 Tioka 主仓库**，该联动仍待 F1 落地。
+- Tioka `tioka-server/src/main/resources/application.yml` 把两个键都写成 `${TIOKA_FOUNDATION_MODE:local}`，缺省均为 `local`。此前应用侧缺省 `local`、starter 缺省 `FOUNDATION`，语义正好相反，会出现「应用以为单飞、starter 仍连中台」。
+- 一致性由 Tioka 主仓库 `tioka-framework` 的 `FoundationModeConfigConsistencyTest` 守门：校验两键同源、两个解析器对共享取值结果一致、以及空串不得被当成「未配置」而静默回落到连中台。
+- 部署侧只需设置 `TIOKA_FOUNDATION_MODE`；不要单独改其中一个键。
+- 两个解析器的取值集合仍不完全相同：starter 侧支持 `foundation|local|self-managed`，Tioka 应用侧只支持 `local|foundation`；注入 `self-managed` 会在 Tioka 启动期显式失败，而不是静默按 `local` 运行（自管授权导入器属 F2，尚未接线）。
 
 ## 5. 测试与守门
 
