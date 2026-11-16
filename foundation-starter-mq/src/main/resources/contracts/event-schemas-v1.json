@@ -1,0 +1,66 @@
+{
+  "contract": "foundation-event-schemas",
+  "schemaVersion": 1,
+  "status": "frozen-v1",
+  "compatibility": {
+    "compatible": [
+      "新增事件类型",
+      "payload 新增字段",
+      "新增可选 HTTP 头"
+    ],
+    "breaking": [
+      "删除或重命名事件类型",
+      "payload 删除或改语义字段",
+      "envelope 删除顶层字段",
+      "签名算法或签名头变更"
+    ],
+    "rule": "破坏性变更只进主版本，且须保留一个并行发布期；接入方按 schemaVersion 分支处理。"
+  },
+  "mqChannel": {
+    "topic": "fdn-events",
+    "tag": "eventType",
+    "body": "payload JSON（v1 起含保留字段 schemaVersion）",
+    "note": "MQ 通道保持既有 body 形态，新增字段属兼容变更；消费方须按 eventType + id 幂等。"
+  },
+  "webhookChannel": {
+    "method": "POST",
+    "contentType": "application/json",
+    "signatureHeader": "X-Fdn-Signature",
+    "signatureFormat": "sha256=<hex hmac_sha256(secret, raw_body)>",
+    "headers": [
+      "X-Fdn-Event",
+      "X-Fdn-Schema-Version",
+      "X-Fdn-Delivery-Id"
+    ],
+    "envelopeRequiredFields": [
+      "schemaVersion",
+      "eventType",
+      "aggregate",
+      "deliveryId",
+      "payload"
+    ]
+  },
+  "events": [
+    { "eventType": "fdn.account.sessions_revoked", "schemaVersion": 1, "requiredFields": [] },
+    { "eventType": "fdn.announcement.published", "schemaVersion": 1, "requiredFields": [] },
+    { "eventType": "fdn.app.manifest_imported", "schemaVersion": 1, "requiredFields": [] },
+    { "eventType": "fdn.auth.policy.apply", "schemaVersion": 1, "requiredFields": [] },
+    { "eventType": "fdn.auth.policy.update", "schemaVersion": 1, "requiredFields": [] },
+    { "eventType": "fdn.authz.changed", "schemaVersion": 1, "requiredFields": [] },
+    { "eventType": "fdn.calendar.changed", "schemaVersion": 1, "requiredFields": [] },
+    { "eventType": "fdn.calendar.import", "schemaVersion": 1, "requiredFields": [] },
+    { "eventType": "fdn.dict.changed", "schemaVersion": 1, "requiredFields": [] },
+    { "eventType": "fdn.file.delete", "schemaVersion": 1, "requiredFields": [] },
+    { "eventType": "fdn.file.upload", "schemaVersion": 1, "requiredFields": [] },
+    { "eventType": "fdn.message.sent", "schemaVersion": 1, "requiredFields": [] },
+    { "eventType": "fdn.org.changed", "schemaVersion": 1, "requiredFields": [] },
+    { "eventType": "fdn.param.changed", "schemaVersion": 1, "requiredFields": [] },
+    { "eventType": "fdn.person.created", "schemaVersion": 1, "requiredFields": [] },
+    { "eventType": "fdn.person.disabled", "schemaVersion": 1, "requiredFields": [] },
+    { "eventType": "fdn.person.updated", "schemaVersion": 1, "requiredFields": [] },
+    { "eventType": "fdn.sync.completed", "schemaVersion": 1, "requiredFields": [] },
+    { "eventType": "fdn.sync.failed", "schemaVersion": 1, "requiredFields": [] },
+    { "eventType": "fdn.sync.paused", "schemaVersion": 1, "requiredFields": [] }
+  ],
+  "note": "v1 只冻结事件名、通道形态与 envelope 字段；payload 的业务字段由各能力域设计文档定义，不在本文件重复声明，避免双源漂移。"
+}

@@ -1,5 +1,6 @@
 package com.foundation.sync.adapter.feishu;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -16,6 +17,7 @@ import org.springframework.context.annotation.Bean;
  * 之间因 {@code @ConditionalOnMissingBean} 按接口类型互相顶掉。
  */
 @AutoConfiguration
+@ConditionalOnProperty(prefix = "foundation.server.domains", name = "feishu", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(FeishuProperties.class)
 public class FeishuAutoConfiguration {
 

@@ -1,5 +1,6 @@
 package com.foundation.calendar.config;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import com.foundation.calendar.api.CalendarAdminApi;
 import com.foundation.calendar.api.CalendarApi;
 import com.foundation.calendar.api.CalendarController;
@@ -32,6 +33,7 @@ import org.springframework.context.annotation.Bean;
  * 写入 {@code fdn_outbox}（由公共域装配提供）。
  */
 @AutoConfiguration
+@ConditionalOnProperty(prefix = "foundation.server.domains", name = "calendar", havingValue = "true", matchIfMissing = true)
 @AutoConfigureAfter(name = {"com.foundation.starter.data.config.FoundationDataAutoConfiguration",
         "com.foundation.common.config.CommonAutoConfiguration"})
 @ConditionalOnBean(SqlSessionFactory.class)

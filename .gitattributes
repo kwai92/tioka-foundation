@@ -1,0 +1,14 @@
+# 在 Linux CI 上直接执行的脚本强制 LF 行尾。
+# 本机 core.autocrlf=true，若不加此规则，将来 checkout 可能给脚本写入 CRLF，
+# 导致 `bad interpreter: /usr/bin/env bash^M` 或 Node 执行异常。
+# 仓库 blob 当前已全部为 LF，本规则只固化既有事实，不会触发重新规范化。
+*.sh   text eol=lf
+*.mjs  text eol=lf
+
+# 契约基线是「逐字节字符串比对」的测试输入，也必须固定 LF：
+# core.autocrlf=true 的 Windows 全新克隆会把 .txt 检出成 CRLF，令
+# ApiInventoryContractTest / GaModularityGateTest 在内容未变时误报「契约变更」。
+# 只钉这批基线，不影响仓库内其他 .txt。
+foundation-server/src/test/resources/contracts/*.txt text eol=lf
+
+# 其余文本类型沿用默认 autocrlf 规范化；Java / JSON / YAML / Markdown 不受行尾影响。

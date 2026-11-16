@@ -24,6 +24,13 @@ spring:
     default-property-inclusion: non_null
 
 foundation:
+  # 部署命名空间（36 号规划 ADP-07 / P5）：同一镜像多套部署时隔离 realm、topic、键前缀、桶与库。
+  # 缺省 default 时派生值与历史字面量完全一致；生产必须显式注入，启动会打 WARN。
+  deployment-id: ${FOUNDATION_DEPLOYMENT_ID:default}
+  server:
+    # 装配 profile（36 号规划 ADP-05）：full 全量 / iam 组织账号权限 / common 字典参数编号审计 / minimal 最小形态
+    # 逐域覆盖用 foundation.server.domains.<domain>=true|false；缺省由 profile 推导
+    profile: ${FOUNDATION_SERVER_PROFILE:full}
   db:
     url: ${FOUNDATION_DB_URL:jdbc:postgresql://localhost:5432/foundation}
     username: ${FOUNDATION_DB_USERNAME:foundation}
@@ -39,7 +46,7 @@ foundation:
     service-account-client-id-pattern: "{appCode}-sa"
   keycloak:
     server-url: ${FOUNDATION_KEYCLOAK_URL:http://localhost:8180}
-    realm: enterprise
+    realm: ${FOUNDATION_KEYCLOAK_REALM:${foundation.namespace.realm}}
     admin-realm: master
     client-id: foundation-admin
     client-secret: ${FOUNDATION_KEYCLOAK_SECRET:}
@@ -49,8 +56,9 @@ foundation:
     # 令牌来源（F-07 §2）：jwt = 作资源服务器校验 Keycloak 签发的令牌
     token-source: "${FOUNDATION_TOKEN_SOURCE:jwt}"
     # 验签公钥集与签发者：默认指向同一 Keycloak 的 realm 端点（F-07 §2、ADR-029 第 32 条）
-    jwk-set-uri: "${FOUNDATION_SECURITY_JWK_SET_URI:${FOUNDATION_KEYCLOAK_URL:http://localhost:8180}/realms/enterprise/protocol/openid-connect/certs}"
-    issuer: "${FOUNDATION_SECURITY_ISSUER:${FOUNDATION_KEYCLOAK_URL:http://localhost:8180}/realms/enterprise}"
+    # realm 由 deployment-id 派生，JWKS 与 issuer 必须同源，否则令牌 iss 校验失败
+    jwk-set-uri: "${FOUNDATION_SECURITY_JWK_SET_URI:${foundation.namespace.jwk-set-uri}}"
+    issuer: "${FOUNDATION_SECURITY_ISSUER:${foundation.namespace.issuer}}"
   dict:
     cache-ttl: ${FOUNDATION_DICT_CACHE_TTL:5m}
   param:
@@ -58,7 +66,15 @@ foundation:
     max-value-length: 4096
     master-key: ${FOUNDATION_PARAM_MASTER_KEY:}
   event:
-    topic: ${FOUNDATION_EVENT_TOPIC:fdn-events}
+    topic: ${FOUNDATION_EVENT_TOPIC:${foundation.namespace.event-topic}}
+  # 对象存储桶：实际绑定键是 foundation.file.storage.bucket（FileProperties），
+  # 部署文档里的 foundation.storage.bucket-prefix 从未被代码读取，已统一到此键。
+  file:
+    storage:
+      bucket: ${FOUNDATION_STORAGE_BUCKET:${foundation.namespace.bucket}}
+  # 接入侧 starter-cache 消费（服务端自身按需引入）；显式环境变量优先
+  cache:
+    key-prefix: ${FOUNDATION_CACHE_KEY_PREFIX:${foundation.namespace.key-prefix}}
 
 # 存活/就绪探针（BAS-21 §3.10）：/actuator/health/liveness、/actuator/health/readiness
 management:

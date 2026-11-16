@@ -31,13 +31,18 @@ jobs:
       - name: dependency-check
         run: mvn -B org.owasp:dependency-check-maven:check
 
-      # 任务 6：OpenAPI 契约比对（springdoc 生成 openapi.json 后与基线 diff）
-      # 契约基线文件位置：docs/openapi.json（首次接入时用 springdoc 导出并提交）
-      - name: OpenAPI 契约比对（springdoc 生成 + diff）
+      # 任务 6：OpenAPI 契约比对（ADP-12）
+      # 模板本身没有 docs/openapi.json 基线，原步骤首次接入必然失败。
+      # 改为：基线存在才严格比对；不存在则打印指引并跳过，接入方按契约导览生成基线后自动启用。
+      - name: OpenAPI 契约比对
         run: |
+          if [ ! -f docs/openapi.json ]; then
+            echo "::notice::未提交 docs/openapi.json 基线，跳过严格比对；生成并提交基线后自动启用"
+            exit 0
+          fi
           mvn -B -DskipTests spring-boot:run -Dspring-boot.run.arguments="--springdoc.api-docs.path=/openapi.json" &
           npx --yes wait-on http://localhost:8080/openapi.json
-          curl -sS http://localhost:8080/openapi.json -o openapi.json
+          curl -sSf http://localhost:8080/openapi.json -o openapi.json
           diff -u docs/openapi.json openapi.json
 
       # 任务 7：权限清单校验（导入形态与 Foundation 的 ManifestParser 一致）

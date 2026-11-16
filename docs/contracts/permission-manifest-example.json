@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "menus": [
+    {
+      "code": "demo.example",
+      "name": "示例菜单",
+      "type": "MENU",
+      "routePath": "/example",
+      "component": "example/index",
+      "icon": "Grid",
+      "sort": 1,
+      "visible": true,
+      "permissionCode": "demo:example:read"
+    },
+    {
+      "code": "demo.example.create",
+      "name": "新建示例",
+      "type": "BUTTON",
+      "parent": "demo.example",
+      "sort": 1,
+      "visible": true,
+      "permissionCode": "demo:example:admin"
+    }
+  ],
+  "permissions": [
+    {
+      "code": "demo:example:read",
+      "name": "示例读取",
+      "riskLevel": "LOW"
+    },
+    {
+      "code": "demo:example:admin",
+      "name": "示例管理",
+      "riskLevel": "MEDIUM"
+    }
+  ]
+}

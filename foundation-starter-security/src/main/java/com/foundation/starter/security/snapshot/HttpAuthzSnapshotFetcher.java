@@ -1,6 +1,7 @@
 package com.foundation.starter.security.snapshot;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.foundation.starter.core.contract.FoundationApiVersion;
 import com.foundation.starter.core.http.BearerTokenSupplier;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -13,8 +14,9 @@ import java.io.IOException;
  * 经 HTTP 从 Foundation 取快照（F-07 §4、§11）。
  *
  * <p>调用清单：{@code GET /api/fdn/apps/{appCode}/persons/{personId}/snapshot[/version]}；
- * 出站带 {@code Authorization}（服务账号令牌，由 {@link BearerTokenSupplier} 提供）与
- * {@code traceparent} / {@code request_id} 透传（F-07 §11）。网络失败一律抛异常，
+ * 出站带 {@code Authorization}（服务账号令牌，由 {@link BearerTokenSupplier} 提供）、
+ * {@link FoundationApiVersion#HEADER} 契约版本头与 {@code traceparent} / {@code request_id}
+ * 透传（F-07 §11、ADP-03）。网络失败一律抛异常，
  * 降级策略由 {@link SnapshotCache} 决定。
  */
 public class HttpAuthzSnapshotFetcher implements AuthzSnapshotFetcher {
@@ -68,7 +70,8 @@ public class HttpAuthzSnapshotFetcher implements AuthzSnapshotFetcher {
     }
 
     private String get(String url) {
-        Request.Builder builder = new Request.Builder().url(url).get();
+        Request.Builder builder = new Request.Builder().url(url).get()
+                .header(FoundationApiVersion.HEADER, FoundationApiVersion.CURRENT);
         String token = tokenSupplier == null ? null : tokenSupplier.bearerToken();
         if (token != null && !token.isBlank()) {
             builder.header("Authorization", "Bearer " + token);

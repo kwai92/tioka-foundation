@@ -30,7 +30,7 @@ class MybatisOutboxTest {
         assertTrue(row.getId().startsWith("evt_"), "主键前缀应为 evt_");
         assertEquals("fdn.dict.changed", row.getEventType());
         assertEquals("dt_1", row.getAggregate());
-        assertEquals("{\"id\":\"dt_1\"}", row.getPayload());
+        assertEquals("{\"id\":\"dt_1\",\"schemaVersion\":1}", row.getPayload());
     }
 
     @Test

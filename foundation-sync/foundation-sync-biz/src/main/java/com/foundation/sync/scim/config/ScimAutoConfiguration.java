@@ -1,5 +1,6 @@
 package com.foundation.sync.scim.config;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import com.foundation.sync.domain.DeleteProtectionPolicy;
 import com.foundation.sync.domain.DiffPreviewService;
 import com.foundation.sync.domain.MasterDataPort;
@@ -39,6 +40,7 @@ import org.springframework.context.annotation.Bean;
  * <p>依赖 {@link SqlSessionFactory} 与 BAS-11 领域 Bean；缺失时整块跳过，纯配置上下文不受影响。
  */
 @AutoConfiguration
+@ConditionalOnProperty(prefix = "foundation.server.domains", name = "scim", havingValue = "true", matchIfMissing = true)
 @AutoConfigureAfter(name = "com.foundation.sync.config.SyncAutoConfiguration")
 @ConditionalOnBean({SqlSessionFactory.class, MasterDataPort.class, DiffPreviewService.class,
         DeleteProtectionPolicy.class})

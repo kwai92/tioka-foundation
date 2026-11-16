@@ -1,5 +1,6 @@
 package com.foundation.authz.config;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.foundation.app.api.AppApi;
 import com.foundation.app.api.AppManifestVersionApi;
@@ -142,6 +143,7 @@ import org.springframework.context.annotation.Bean;
  * （应用编码解析与清单版本读写）；缺失时整块跳过，纯配置上下文不受影响。
  */
 @AutoConfiguration
+@ConditionalOnProperty(prefix = "foundation.server.domains", name = "authz", havingValue = "true", matchIfMissing = true)
 @AutoConfigureAfter(name = {
         "com.foundation.starter.data.config.FoundationDataAutoConfiguration",
         "com.foundation.common.config.CommonAutoConfiguration",

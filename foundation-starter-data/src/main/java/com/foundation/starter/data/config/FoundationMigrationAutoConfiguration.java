@@ -3,7 +3,7 @@ package com.foundation.starter.data.config;
 import com.foundation.starter.data.flyway.FlywayNaming;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import com.foundation.starter.core.condition.ConditionalOnFoundationCapability;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 
@@ -14,7 +14,7 @@ import org.springframework.context.annotation.Bean;
  * （{@code @ConditionalOnBean}），而迁移命名约定不依赖运行期数据源，构建期与纯配置测试也要可用。
  */
 @AutoConfiguration
-@ConditionalOnProperty(prefix = "foundation", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnFoundationCapability("data")
 @EnableConfigurationProperties(FoundationDataProperties.class)
 public class FoundationMigrationAutoConfiguration {
 

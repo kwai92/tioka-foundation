@@ -16,6 +16,25 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: maven
+      # ADP-01/04：契约文件与权限清单的 fail-closed 守门，先于构建执行
+      - name: 契约与清单校验
+        run: |
+          test -f foundation-starter-mq/src/main/resources/contracts/event-schemas-v1.json
+          test -f docs/contracts/permission-manifest-v1.schema.json
+          test -f foundation-server/src/test/resources/contracts/api-inventory-v1.txt
+          # ADP-05：四种装配 profile 的能力域冻结基线（GaModularityGateTest 消费）
+          test -f foundation-server/src/test/resources/contracts/server-profile-domains-v1.txt
+          # ADP-11：兼容矩阵机器可读契约（verify-compatibility-matrix.mjs 消费）
+          test -f docs/contracts/compatibility-matrix-v1.json
+          bash foundation-template/scripts/check-permission-manifest.sh docs/contracts/permission-manifest-example.json
+          # ADP-12：模板 {app} 改名后无残留且清单仍合法
+          bash foundation-template/scripts/verify-rename.sh
+          # ADP-07：部署命名空间渲染脚本可用（default 与非 default 各一次）
+          eval "$(bash deploy/init/render-deployment.sh --id default)"
+          test -n "${FOUNDATION_KEYCLOAK_REALM}"
+          eval "$(bash deploy/init/render-deployment.sh --id ci-check)"
+          test "${FOUNDATION_KEYCLOAK_REALM}" = "enterprise-ci-check"
+          test -f deploy/init/foundation-realm.ci-check.json
       - name: verify
         run: mvn -B clean verify
 
@@ -32,3 +51,44 @@ jobs:
           cache: maven
       - name: gate
         run: mvn -B verify -Pgate
+
+  node-sdk:
+    name: C 类 Node 接入包自检
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # ADP-09：Node 侧常量直接比对 Java 源码与事件契约，跨语言漂移在 PR 阶段即失败
+      - name: 跨语言契约对齐与验签自检
+        run: node --test sdk-examples/node/test/client.test.mjs
+
+  compatibility:
+    name: 兼容矩阵 ${{ matrix.mode }} / ${{ matrix.profile }}
+    runs-on: ubuntu-latest
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [foundation, local, self-managed]
+        profile: [full, minimal]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # ADP-11：契约与真实代码 / 真实 CI 逐项对齐，防止矩阵悄悄少跑一档
+      - name: 矩阵契约一致性
+        run: node scripts/verify-compatibility-matrix.mjs
+      # 每个组合由 CompatibilityMatrixProbeTest 消费环境变量，不是空跑 6 次同一套测试
+      - name: 组合探针
+        env:
+          FOUNDATION_COMPAT_MODE: ${{ matrix.mode }}
+          FOUNDATION_COMPAT_PROFILE: ${{ matrix.profile }}
+        run: mvn -B test -pl foundation-server -am -Dtest=CompatibilityMatrixProbeTest -Dsurefire.failIfNoSpecifiedTests=false

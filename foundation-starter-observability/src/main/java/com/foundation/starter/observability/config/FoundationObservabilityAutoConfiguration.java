@@ -8,7 +8,7 @@ import com.foundation.starter.observability.trace.TraceIdFilter;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import com.foundation.starter.core.condition.ConditionalOnFoundationCapability;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -26,7 +26,7 @@ import java.util.List;
  * 本类自身不出现 servlet / web 类型，非 web 进程不会因类加载失败而中断。
  */
 @AutoConfiguration(after = CoreAutoConfiguration.class)
-@ConditionalOnProperty(prefix = "foundation", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnFoundationCapability("observability")
 @EnableConfigurationProperties(FoundationObservabilityProperties.class)
 @Import({OtelConfig.class, HealthConfig.class})
 public class FoundationObservabilityAutoConfiguration {

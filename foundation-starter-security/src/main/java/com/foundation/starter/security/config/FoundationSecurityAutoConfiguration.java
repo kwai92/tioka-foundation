@@ -30,7 +30,9 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import com.foundation.starter.core.condition.ConditionalOnFoundationCapability;
+import com.foundation.starter.core.condition.ConditionalOnFoundationRuntimeMode;
+import com.foundation.starter.core.runtime.FoundationRuntimeMode;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -42,6 +44,7 @@ import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.net.URI;
+import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
 
@@ -49,10 +52,17 @@ import java.util.List;
  * 安全接入自动装配（F-07 BAS-08 §1〜§5、§9）。
  *
  * <p>{@code foundation.enabled=false} 时整块不激活；未引入 web 时只失去
- * {@link CurrentUserArgumentResolver} 注册（{@link PrincipalHolder} 与后台任务的 {@code runAs} 仍可用）。
+ * {@link CurrentUserArgumentResolver} 注册（{@code PrincipalHolder} 与后台任务的 {@code runAs} 仍可用）。
+ *
+ * <p><b>运行模式约束（CM-03）</b>：本配置的授权快照是经 {@link HttpAuthzSnapshotFetcher}
+ * 回源中台的真实 HTTP 出站通道。{@code LOCAL} / {@code SELF_MANAGED} 声明「不连中台」，
+ * 因此整块不装配，由接入方自建身份与权限（可自行注册 {@link AuthzSnapshotFetcher} 等 Bean）。
+ * 若不作此约束，仅关掉 {@code foundation-starter-client} 的只读客户端仍会留下这条出站链路，
+ * 与兼容矩阵 CM-03 冲突。默认 {@code FOUNDATION} 模式下行为不变。
  */
 @AutoConfiguration
-@ConditionalOnProperty(prefix = "foundation", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnFoundationCapability("security")
+@ConditionalOnFoundationRuntimeMode(FoundationRuntimeMode.FOUNDATION)
 @EnableConfigurationProperties({FoundationSecurityProperties.class,
         FoundationAuthzProperties.class,
         FoundationDataScopeProperties.class})
@@ -114,7 +124,10 @@ public class FoundationSecurityAutoConfiguration {
                 foundationProperties.getAppCode(),
                 snapshot.getCacheTtl(),
                 snapshot.getLocalCache().isEnabled(),
-                snapshot.getLocalCache().getTtl());
+                snapshot.getLocalCache().getTtl(),
+                Clock.systemUTC(),
+                snapshot.isStaleAllowed(),
+                snapshot.getStaleMaxAge());
     }
 
     @Bean

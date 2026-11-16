@@ -56,7 +56,8 @@ services:
     ports:
       - "8180:8180"
     volumes:
-      - ./init/foundation-realm.json:/opt/keycloak/data/import/foundation-realm.json:ro
+      # 非 default 部署由 render-deployment.sh 生成带 id 的 realm 文件后，把 FOUNDATION_REALM_FILE 指向它
+      - ${FOUNDATION_REALM_FILE:-./init/foundation-realm.json}:/opt/keycloak/data/import/foundation-realm.json:ro
     healthcheck:
       test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8180"]
       interval: 10s
@@ -140,13 +141,16 @@ services:
       # spring.data.redis.*
       FOUNDATION_REDIS_HOST: redis
       FOUNDATION_REDIS_PREFIX: fdn
+      # 部署命名空间（ADP-07）：多套部署先执行 `source deploy/init/render-deployment.sh --id <id>`，
+      # 由脚本按 id 派生下面这些变量；不执行时保持 default，与改造前逐字一致。
+      FOUNDATION_DEPLOYMENT_ID: ${FOUNDATION_DEPLOYMENT_ID:-default}
       # foundation.keycloak.*
       FOUNDATION_KEYCLOAK_URL: http://keycloak:8180
-      FOUNDATION_KEYCLOAK_REALM: enterprise
+      FOUNDATION_KEYCLOAK_REALM: ${FOUNDATION_KEYCLOAK_REALM:-enterprise}
       FOUNDATION_KEYCLOAK_CLIENT_ID: foundation-admin
       FOUNDATION_KEYCLOAK_SECRET: ${FOUNDATION_KEYCLOAK_SECRET:-}
-      # foundation.event.topic
-      FOUNDATION_EVENT_TOPIC: fdn-events
+      # foundation.event.topic（显式值优先；未设时服务端按 deployment-id 派生）
+      FOUNDATION_EVENT_TOPIC: ${FOUNDATION_EVENT_TOPIC:-fdn-events}
       # foundation.mq.*
       FOUNDATION_MQ_NAME_SERVER: rocketmq-namesrv:9876
       # foundation.param.master-key（生产必填，缺失启动失败）
@@ -160,7 +164,9 @@ services:
       # foundation.authz.* / foundation.audit.*
       FOUNDATION_AUTHZ_SNAPSHOT_CACHE_TTL: ${FOUNDATION_AUTHZ_SNAPSHOT_CACHE_TTL:-5m}
       FOUNDATION_AUDIT_RETENTION_DAYS: ${FOUNDATION_AUDIT_RETENTION_DAYS:-180}
-      # foundation.secret.master-key-ref（来自 SecretStoreAdapter，生产必填）
+      # 历史占位：foundation.secret.master-key-ref 无 Java 绑定，配置不会生效。
+      # 真实主密钥见 foundation.param.master-key / foundation.org.person.master-key。
+      # 保留变量仅为兼容既有部署脚本，是否补 SecretStoreAdapter 实现待设计侧决策。
       FOUNDATION_SECRET_MASTER_KEY_REF: ${FOUNDATION_SECRET_MASTER_KEY_REF:-}
     ports:
       - "8081:8081"

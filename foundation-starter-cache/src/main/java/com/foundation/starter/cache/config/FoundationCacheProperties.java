@@ -12,8 +12,11 @@ import java.time.Duration;
 @ConfigurationProperties(prefix = "foundation.cache")
 public class FoundationCacheProperties {
 
+    /** 历史默认前缀；与 {@code DeploymentNamespace.DEFAULT_KEY_PREFIX} 一致，用于识别「未显式配置」。 */
+    public static final String DEFAULT_KEY_PREFIX = "fdn:";
+
     /** 全局键前缀；缓存键、锁键与限流键统一以此开头，避免与同 Redis 实例的其他应用冲突。 */
-    private String keyPrefix = "fdn:";
+    private String keyPrefix = DEFAULT_KEY_PREFIX;
 
     /** 锁与限流实现选择：{@code local}（单实例进程内）/ {@code redisson}（跨实例）。 */
     private String backend = "local";

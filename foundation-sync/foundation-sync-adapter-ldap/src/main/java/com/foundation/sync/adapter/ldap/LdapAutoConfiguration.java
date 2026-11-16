@@ -1,5 +1,6 @@
 package com.foundation.sync.adapter.ldap;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -12,6 +13,7 @@ import org.springframework.context.annotation.Bean;
  * 不得退回接口类型，否则多个来源适配器之间会被 {@code @ConditionalOnMissingBean} 互相顶掉。
  */
 @AutoConfiguration
+@ConditionalOnProperty(prefix = "foundation.server.domains", name = "ldap", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(LdapProperties.class)
 public class LdapAutoConfiguration {
 

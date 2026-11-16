@@ -1,5 +1,6 @@
 package com.foundation.auth.config;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import com.foundation.auth.api.AuthPolicyApi;
 import com.foundation.auth.api.AuthPolicyController;
 import com.foundation.auth.application.AuthPolicyService;
@@ -26,6 +27,7 @@ import org.springframework.context.annotation.Bean;
  * 任一缺失时整块跳过，纯配置上下文（无 DB / 无 Keycloak）不受影响。
  */
 @AutoConfiguration
+@ConditionalOnProperty(prefix = "foundation.server.domains", name = "auth", havingValue = "true", matchIfMissing = true)
 @AutoConfigureAfter(name = {"com.foundation.starter.data.config.FoundationDataAutoConfiguration"})
 @ConditionalOnBean({SqlSessionFactory.class, KeycloakRealmAdmin.class})
 @EnableConfigurationProperties(AuthProperties.class)

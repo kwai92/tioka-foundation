@@ -1,8 +1,13 @@
 package com.foundation.starter.client.config;
 
+import com.foundation.starter.core.runtime.FoundationRuntimeMode;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 /** 中台客户端配置（F-07 §13：{@code foundation.client.*} / {@code dict.*} / {@code param.*} / {@code org.*} / {@code person.*}）。 */
 @ConfigurationProperties(prefix = "foundation")
@@ -62,6 +67,15 @@ public class FoundationClientProperties {
         /** 熔断（短窗口失败率）。 */
         private final CircuitBreaker circuitBreaker = new CircuitBreaker();
 
+        /** 只读能力降级（{@code foundation.client.degrade.*}，ADP-08）。 */
+        private final Degrade degrade = new Degrade();
+
+        /** 接入运行模式（{@code foundation.client.mode}，ADP-08）；缺省 FOUNDATION 保持零改动。 */
+        private FoundationRuntimeMode mode = FoundationRuntimeMode.FOUNDATION;
+
+        /** 本地种子数据（{@code foundation.client.local.*}，ADP-08）。 */
+        private final Local local = new Local();
+
         public Duration getConnectTimeout() {
             return connectTimeout;
         }
@@ -84,6 +98,303 @@ public class FoundationClientProperties {
 
         public CircuitBreaker getCircuitBreaker() {
             return circuitBreaker;
+        }
+
+        public Degrade getDegrade() {
+            return degrade;
+        }
+
+        public FoundationRuntimeMode getMode() {
+            return mode;
+        }
+
+        public void setMode(FoundationRuntimeMode mode) {
+            this.mode = mode == null ? FoundationRuntimeMode.FOUNDATION : mode;
+        }
+
+        public Local getLocal() {
+            return local;
+        }
+    }
+
+    /**
+     * 本地种子数据（{@code foundation.client.local.*}）。
+     *
+     * <p>只在 {@code foundation.client.mode=local|self-managed} 且
+     * {@code foundation.client.local.enabled=true} 时生效：让 D 类轻量服务与
+     * 「Foundation 停机时的回退部署」在不连中台、不引中间件的情况下仍能读到
+     * 字典、参数、组织与人员。<b>刻意不默认开启</b>——底座不替业务方编造主数据，
+     * 接入方也可以按 {@code @ConditionalOnMissingBean} 自行注册本地实现。
+     *
+     * <p>敏感参数只写不读（F-02 BAS-09）：列在 {@code secret-params} 中的键一律返回空。
+     */
+    public static class Local {
+
+        private boolean enabled = false;
+
+        /** 字典种子：{@code 类型编码 -> 字典项列表}。 */
+        private Map<String, List<DictSeed>> dict = new LinkedHashMap<>();
+
+        /** 参数种子：{@code 参数键 -> 值}。 */
+        private Map<String, String> param = new LinkedHashMap<>();
+
+        /** 视为敏感、拒绝读取的参数键。 */
+        private List<String> secretParams = new ArrayList<>();
+
+        private List<OrgUnitSeed> orgUnits = new ArrayList<>();
+
+        private List<PersonSeed> persons = new ArrayList<>();
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public Map<String, List<DictSeed>> getDict() {
+            return dict;
+        }
+
+        public void setDict(Map<String, List<DictSeed>> dict) {
+            this.dict = dict == null ? new LinkedHashMap<>() : dict;
+        }
+
+        public Map<String, String> getParam() {
+            return param;
+        }
+
+        public void setParam(Map<String, String> param) {
+            this.param = param == null ? new LinkedHashMap<>() : param;
+        }
+
+        public List<String> getSecretParams() {
+            return secretParams;
+        }
+
+        public void setSecretParams(List<String> secretParams) {
+            this.secretParams = secretParams == null ? new ArrayList<>() : secretParams;
+        }
+
+        public List<OrgUnitSeed> getOrgUnits() {
+            return orgUnits;
+        }
+
+        public void setOrgUnits(List<OrgUnitSeed> orgUnits) {
+            this.orgUnits = orgUnits == null ? new ArrayList<>() : orgUnits;
+        }
+
+        public List<PersonSeed> getPersons() {
+            return persons;
+        }
+
+        public void setPersons(List<PersonSeed> persons) {
+            this.persons = persons == null ? new ArrayList<>() : persons;
+        }
+    }
+
+    /** 本地字典项种子。 */
+    public static class DictSeed {
+
+        private String itemCode;
+        private String itemName;
+        private int sort;
+        private String appCode;
+
+        public String getItemCode() {
+            return itemCode;
+        }
+
+        public void setItemCode(String itemCode) {
+            this.itemCode = itemCode;
+        }
+
+        public String getItemName() {
+            return itemName;
+        }
+
+        public void setItemName(String itemName) {
+            this.itemName = itemName;
+        }
+
+        public int getSort() {
+            return sort;
+        }
+
+        public void setSort(int sort) {
+            this.sort = sort;
+        }
+
+        public String getAppCode() {
+            return appCode;
+        }
+
+        public void setAppCode(String appCode) {
+            this.appCode = appCode;
+        }
+    }
+
+    /** 本地组织单元种子。 */
+    public static class OrgUnitSeed {
+
+        private String id;
+        private String code;
+        private String name;
+        private String parentId;
+        private int sort;
+
+        public String getId() {
+            return id;
+        }
+
+        public void setId(String id) {
+            this.id = id;
+        }
+
+        public String getCode() {
+            return code;
+        }
+
+        public void setCode(String code) {
+            this.code = code;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getParentId() {
+            return parentId;
+        }
+
+        public void setParentId(String parentId) {
+            this.parentId = parentId;
+        }
+
+        public int getSort() {
+            return sort;
+        }
+
+        public void setSort(int sort) {
+            this.sort = sort;
+        }
+    }
+
+    /** 本地人员种子。 */
+    public static class PersonSeed {
+
+        private String id;
+        private String employeeNo;
+        private String name;
+        private String accountId;
+        private String primaryOrgUnit;
+        private String status = "ACTIVE";
+
+        public String getId() {
+            return id;
+        }
+
+        public void setId(String id) {
+            this.id = id;
+        }
+
+        public String getEmployeeNo() {
+            return employeeNo;
+        }
+
+        public void setEmployeeNo(String employeeNo) {
+            this.employeeNo = employeeNo;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getAccountId() {
+            return accountId;
+        }
+
+        public void setAccountId(String accountId) {
+            this.accountId = accountId;
+        }
+
+        public String getPrimaryOrgUnit() {
+            return primaryOrgUnit;
+        }
+
+        public void setPrimaryOrgUnit(String primaryOrgUnit) {
+            this.primaryOrgUnit = primaryOrgUnit;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
+        }
+    }
+
+    /**
+     * 降级策略配置（{@code foundation.client.degrade.*}）。
+     *
+     * <p>全局默认 {@code fail-closed}；只有显式改为 {@code stale-cache} 且在
+     * {@code capabilities} 白名单内的只读能力才会使用过期缓存。身份与授权类不在白名单内，
+     * 无论如何配置都保持拒绝（36 号规划 §6「降级语义」、待决策 D4 的保守默认值）。
+     */
+    public static class Degrade {
+
+        private DegradePolicy policy = DegradePolicy.FAIL_CLOSED;
+
+        /** 过期缓存可容忍的最大陈旧时长，超过即不再兜底。 */
+        private Duration maxStale = Duration.ofMinutes(30);
+
+        /** 允许使用过期缓存的只读能力白名单。 */
+        private java.util.List<String> capabilities = new java.util.ArrayList<>(
+                java.util.List.of("dict", "param", "org", "person"));
+
+        public DegradePolicy getPolicy() {
+            return policy;
+        }
+
+        public void setPolicy(DegradePolicy policy) {
+            this.policy = policy == null ? DegradePolicy.FAIL_CLOSED : policy;
+        }
+
+        public Duration getMaxStale() {
+            return maxStale;
+        }
+
+        public void setMaxStale(Duration maxStale) {
+            this.maxStale = maxStale == null ? Duration.ofMinutes(30) : maxStale;
+        }
+
+        public java.util.List<String> getCapabilities() {
+            return capabilities;
+        }
+
+        public void setCapabilities(java.util.List<String> capabilities) {
+            this.capabilities = capabilities == null ? java.util.List.of() : capabilities;
+        }
+
+        /** 按能力求实际生效的策略；白名单外一律 FAIL_CLOSED。 */
+        public DegradePolicy policyFor(String capability) {
+            return policy == DegradePolicy.STALE_CACHE && capabilities.contains(capability)
+                    ? DegradePolicy.STALE_CACHE
+                    : DegradePolicy.FAIL_CLOSED;
+        }
+
+        public long maxStaleMillis() {
+            return maxStale.toMillis();
         }
     }
 

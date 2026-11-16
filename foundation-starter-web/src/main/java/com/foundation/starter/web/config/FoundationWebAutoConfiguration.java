@@ -3,12 +3,15 @@ package com.foundation.starter.web.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.foundation.starter.core.config.CoreAutoConfiguration;
 import com.foundation.starter.web.error.GlobalExceptionHandler;
+import com.foundation.starter.web.filter.ApiVersionFilter;
+import com.foundation.starter.web.filter.DegradeHeaderFilter;
 import com.foundation.starter.web.filter.IdempotencyFilter;
 import com.foundation.starter.web.filter.IdempotencyStore;
 import com.foundation.starter.web.filter.InMemoryIdempotencyStore;
 import com.foundation.starter.web.filter.RequestLogFilter;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import com.foundation.starter.core.condition.ConditionalOnFoundationCapability;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -26,7 +29,7 @@ import java.util.List;
  * 时生效，各 Bean 均可被业务侧同名 Bean 覆盖。
  */
 @AutoConfiguration(after = CoreAutoConfiguration.class)
-@ConditionalOnProperty(prefix = "foundation", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnFoundationCapability("web")
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 @EnableConfigurationProperties(FoundationWebProperties.class)
 @Import(OpenApiConfig.class)
@@ -82,6 +85,41 @@ public class FoundationWebAutoConfiguration {
     public FilterRegistrationBean<RequestLogFilter> requestLogFilterRegistration(RequestLogFilter filter) {
         FilterRegistrationBean<RequestLogFilter> registration = new FilterRegistrationBean<>(filter);
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 10);
+        registration.setUrlPatterns(List.of("/*"));
+        return registration;
+    }
+
+    // ---------- ADP-03 接口主版本协商 / ADP-08 降级标记透传 ----------
+
+    /** 版本协商过滤器：缺省头视为 v1，旧接入方零改动。 */
+    @Bean
+    @ConditionalOnMissingBean
+    public ApiVersionFilter apiVersionFilter() {
+        return new ApiVersionFilter();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(name = "apiVersionFilterRegistration")
+    public FilterRegistrationBean<ApiVersionFilter> apiVersionFilterRegistration(ApiVersionFilter filter) {
+        FilterRegistrationBean<ApiVersionFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 30);
+        registration.setUrlPatterns(List.of("/*"));
+        return registration;
+    }
+
+    /** 降级标记过滤器：注册在最外层，请求结束后统一写响应头并清理上下文。 */
+    @Bean
+    @ConditionalOnMissingBean
+    public DegradeHeaderFilter degradeHeaderFilter() {
+        return new DegradeHeaderFilter();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(name = "degradeHeaderFilterRegistration")
+    public FilterRegistrationBean<DegradeHeaderFilter> degradeHeaderFilterRegistration(
+            DegradeHeaderFilter filter) {
+        FilterRegistrationBean<DegradeHeaderFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
         registration.setUrlPatterns(List.of("/*"));
         return registration;
     }

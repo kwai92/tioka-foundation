@@ -102,5 +102,7 @@ JS
   exit $?
 fi
 
-echo "未找到 python3 或 node，跳过权限清单结构校验（Foundation 侧由 ManifestParser 严格校验）"
-exit 0
+echo "清单校验失败：未找到 python3 或 node。" >&2
+echo "ADP-04：清单校验是 fail-closed 的，不允许静默跳过；请在 CI 镜像中安装 python3 或 node。" >&2
+echo "（Foundation 侧 ManifestParser 的严格校验是第二道关口，不能替代 CI 前置守门。）" >&2
+exit 1

@@ -13,7 +13,9 @@
     <parent>
         <groupId>com.foundation</groupId>
         <artifactId>foundation-parent</artifactId>
-        <version>0.1.0-SNAPSHOT</version>
+        <!-- 模板随适配性剖面发布，parent 必须指向对应版本轨；新业务项目改用稳定基座时改成 0.1.0-SNAPSHOT，
+             见 docs/version-tracks.md。下方 <version> 自身版本是新应用坐标，与 Foundation 版本无关。 -->
+        <version>0.2.0-adapt-SNAPSHOT</version>
         <relativePath/>
     </parent>
 

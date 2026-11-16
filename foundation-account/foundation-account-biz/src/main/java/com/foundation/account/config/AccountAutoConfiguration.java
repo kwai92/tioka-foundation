@@ -1,5 +1,6 @@
 package com.foundation.account.config;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.foundation.account.api.AccountApi;
 import com.foundation.account.api.AccountController;
@@ -66,6 +67,7 @@ import java.time.Duration;
  * <p>顺带开启 {@code @EnableScheduling}：每日对账（{@link AccountReconcileJob}）依赖 {@code @Scheduled} 生效。
  */
 @AutoConfiguration
+@ConditionalOnProperty(prefix = "foundation.server.domains", name = "account", havingValue = "true", matchIfMissing = true)
 @AutoConfigureAfter(name = {
         "com.foundation.starter.data.config.FoundationDataAutoConfiguration",
         "com.foundation.common.config.CommonAutoConfiguration"})

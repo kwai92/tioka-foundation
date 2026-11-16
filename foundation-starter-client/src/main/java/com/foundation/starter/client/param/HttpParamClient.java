@@ -23,7 +23,7 @@ public class HttpParamClient implements ParamClient {
 
     @Override
     public Optional<String> value(String key) {
-        ParamEntry entry = cache.get("fdn:param:" + key, () -> fetch(key));
+        ParamEntry entry = cache.getWithDegrade("fdn:param:" + key, () -> fetch(key));
         if (entry == null || !entry.readable() || entry.value() == null) {
             return Optional.empty();
         }
