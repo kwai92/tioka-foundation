@@ -4,8 +4,16 @@
 
 ## 1. 三条规则
 
-1. **只读主数据**（字典 / 参数 / 组织 / 人员）：可按能力配置为「过期缓存兜底 + 降级标记」。
-2. **身份与授权**：默认且建议保持 `deny`。显式配置 `stale` 才允许在陈旧上限内放行，且必须留审计日志与降级标记。
+1. **只读主数据**（字典 / 参数 / 组织 / 人员）：可按能力配置为「过期缓存兜底 + 降级标记」，
+   决策出口是 `Degrade.policyFor(capability)`，白名单外一律 `FAIL_CLOSED`。
+2. **身份与授权**：**当前默认且实际行为都是 deny**，不存在生产可用的过期放行。
+   授权快照有两条实现路径，降级决策出口正在收敛（见 §2.1）：
+   - **轻量路径**（`foundation-starter-client`，Tioka 与第二接入方实际走的那条）已收敛为
+     只消费 `Degrade.policyFor("authz")`。因 `authz` 不在白名单，恒为 `FAIL_CLOSED`，
+     过期且回源失败一律拒绝；接入方**无法**通过任何配置放宽。
+   - **标准路径**（`foundation-starter-security` 的 `SnapshotCache`）仍自行解析
+     `foundation.authz.snapshot.fail-mode`，保留了 `stale` 分支。这是**尚未收敛的第二个
+     决策出口**，其行为归属待决策 D4；**生产环境在 D4 拍板前不应启用 `stale`**。
 3. **写接口**（编号取号、文件上传、删除等）：**不降级、不兜底**，直接失败，避免重复与非幂等副作用。
 
 ## 2. 配置项
@@ -15,14 +23,31 @@
 | `foundation.client.degrade.policy` | `fail-closed` | 全局策略；`stale-cache` 才允许使用过期缓存 |
 | `foundation.client.degrade.max-stale` | `30m` | 过期缓存可容忍的最大陈旧时长，超过即拒绝兜底 |
 | `foundation.client.degrade.capabilities` | `dict,param,org,person` | 允许降级的能力白名单；**白名单外一律 fail-closed** |
-| `foundation.authz.snapshot.fail-mode` | `deny` | 授权快照策略；`stale` 为过期放行 |
-| `foundation.authz.snapshot.stale-max-age` | `10m` | 授权快照陈旧上限 |
+| `foundation.authz.snapshot.fail-mode` | `deny` | 授权快照策略；`stale` 为过期放行。**仅标准路径生效**，待决策 D4 管辖 |
+| `foundation.authz.snapshot.stale-max-age` | `10m` | 授权快照陈旧上限（同上，仅标准路径） |
 | `foundation.authz.snapshot.cache-ttl` | `5m` | **标准路径**（`foundation-starter-security`）的 `SnapshotCache` TTL |
 | `foundation.client.authz.cache-ttl` | `5m` | **轻量路径**（`foundation-starter-client`）P1 版本化缓存 TTL；`0s` 退回每次回源。刻意不与上面的 security starter 配置共用，避免两套缓存语义串线 |
 | `foundation.client.mode` | `foundation` | 接入运行模式；`local` / `self-managed` 下不装配中台客户端，详见 [接入运行模式](runtime-modes.md) |
 | `foundation.client.local.enabled` | `false` | 独立模式下是否启用配置种子实现（dict/param/org/person） |
 
-`Degrade.policyFor(capability)` 是唯一判定出口：即使全局打开 `stale-cache`，`security` / `authz` 等不在白名单的能力仍返回 `FAIL_CLOSED`。配置拼写错误（如 `fail-open`）会**启动期快速失败**，不会被当成 deny 悄悄放过。
+### 2.1 降级决策出口的现状（本批收敛）
+
+`Degrade.policyFor(capability)` 是**只读主数据**的唯一判定出口：即使全局打开 `stale-cache`，
+`security` / `authz` 等不在白名单的能力仍返回 `FAIL_CLOSED`。配置拼写错误（如 `fail-open`）
+会**启动期快速失败**，不会被当成 deny 悄悄放过。
+
+授权快照目前有**两个**决策出口，这是已知欠账而非设计目标：
+
+| 出口 | 位置 | 行为 | 谁在消费 |
+| --- | --- | --- | --- |
+| `Degrade.policyFor("authz")` | starter-client | 恒 `FAIL_CLOSED`，接入方不可放宽 | Tioka、`foundation-it-example`（轻量路径，活跃） |
+| `FoundationAuthzProperties.isStaleAllowed()` | starter-security | 可配 `stale` 过期放行 | 标准路径，当前无活跃接入方 |
+
+收敛方向：让标准路径也只消费 `policyFor("authz")`，把 `fail-mode` 退化为 `policyFor` 的
+输入或移除。**本批刻意不动标准路径行为**——它归属待决策 D4（授权是否允许 fail-open），
+代其拍板属于越权决策。D4 若拍板「一律禁止」，只需删掉 `isStaleAllowed()` 的 `stale` 分支；
+若拍板「允许」，只需把 `authz` 纳入降级白名单，轻量路径无需改动即可生效。
+
 
 ## 3. 降级链路
 
@@ -56,17 +81,36 @@ executor.submit(DegradeContext.wrap(snapshot, () -> doWork())); // 或 DegradeCo
 
 ### 3.2 轻量路径的授权快照缓存（P1）
 
-`foundation-starter-client` 的 `AuthorizationSnapshotCache` 与标准路径 `SnapshotCache` 同构但独立：命中新鲜快照即零回源，`fdn.authz.changed` 经 `AuthorizationSnapshotInvalidationListener` 失效，TTL 只是事件丢失兜底。**该缓存不提供过期放行**：条目过期且回源失败一律返回 `null` 并删除条目；回源版本回退或身份串号同样拒绝。这与 `Degrade.policyFor("authz")` 恒为 `FAIL_CLOSED` 一致，不由 `foundation.client.degrade.*` 白名单放宽。
+`foundation-starter-client` 的 `AuthorizationSnapshotCache` 与标准路径 `SnapshotCache` 同构但独立：命中新鲜快照即零回源，`fdn.authz.changed` 经 `AuthorizationSnapshotInvalidationListener` 失效，TTL 只是事件丢失兜底。
+
+该缓存**不自带降级决策**，只消费构造时注入的 `DegradePolicy`，装配层传入
+`Degrade.policyFor("authz")`。因 `authz` 不在降级白名单，实际恒为 `FAIL_CLOSED`：
+条目过期且回源失败一律返回 `null` 并删除条目。接入方没有任何配置可以放宽它。
+
+代码中保留的 `STALE_CACHE` 分支是为 D4 拍板后准备的**唯一改点**（把 `authz` 加进白名单即可，
+两条路径同时生效），当前不可达，由 `AuthorizationSnapshotCacheTest` 的「默认策略为 FAIL_CLOSED
+时过期即拒绝」锁定。两条与降级策略**解耦**的硬拒绝，任何策略下都不可放宽：
+
+- **版本回退**：回源版本小于已缓存版本 → 拒绝。数据错误不等于「中台不可用」，
+  否则权限会静默回退到旧版本。
+- **身份串号**：回源结果的 `personId` / `appCode` 与请求不一致 → 拒绝且不入缓存。
 
 ## 4. 授权快照的等保边界
 
-`SnapshotCache` 原先把「缓存过期且回源失败」写死为 `FORBIDDEN`（F-07 §4 / S15 §11.3）。本批把 `FoundationAuthzProperties.Snapshot.failMode` 真正接线：
+标准路径 `SnapshotCache` 原先把「缓存过期且回源失败」写死为 `FORBIDDEN`（F-07 §4 / S15 §11.3）。ADP-08 把 `FoundationAuthzProperties.Snapshot.failMode` 接线：
 
 - `deny`（默认）：行为与改造前完全一致，由 `SnapshotDegradeTest` 覆盖。
 - `stale`：仅在存在过期快照且未超 `stale-max-age` 时放行；同时写审计 WARN 日志并打降级标记；`load()` 与 `version()` 走同一出口。
 - 确定性业务拒绝（`BizException`）不降级，避免把 403 掩盖成过期放行。
 
-> **待决策 D4**：36 号规划建议「身份与授权类不允许 fail-open」。本批按「默认 deny、可配但需显式开启且留痕」实现，是保守但可回退的形态。若 D4 拍板禁止，只需把 `isStaleAllowed()` 固定为 `false` 并删除 `stale` 分支，不影响其它能力。**生产环境在 D4 拍板前不应启用 `stale`。**
+> **待决策 D4**：36 号规划第 9 节 D4 的**建议**是「身份与授权类不允许 fail-open」，
+> 但该条仍在「待负责人决策」表中，**尚未拍板**。因此本批只收敛了轻量路径的决策出口，
+> 未改动标准路径的 `stale` 分支——代其拍板属越权决策。
+> D4 若拍板「禁止」：删掉 `isStaleAllowed()` 的 `stale` 分支，轻量路径无需改动。
+> D4 若拍板「允许」：把 `authz` 纳入 `foundation.client.degrade.capabilities`，轻量路径自动生效，
+> 再决定是否收敛标准路径到同一出口。
+> **无论 D4 如何，生产环境在拍板前不应启用 `stale`。**
+
 
 ## 5. 测试覆盖
 
@@ -80,11 +124,15 @@ executor.submit(DegradeContext.wrap(snapshot, () -> doWork())); // 或 DegradeCo
 | `RuntimeModeAssemblyTest`（第四批） | 三种模式装配互斥、独立模式不建连中台、总开关优先 |
 | `LocalFoundationDataTest`（第四批） | 本地种子实现的行为契约 |
 | `DegradeContextTest`（P1） | 父子线程传递、子线程回写父请求、异常仍清理、请求间隔离、`restore(null)` |
-| `AuthorizationSnapshotCacheTest`（P1） | 命中零回源、TTL 到期回源、陈旧拒绝、版本回退拒绝、身份串号拒绝、事件失效、`cache-ttl=0s` |
+| `AuthorizationSnapshotCacheTest`（P1） | 命中零回源、TTL 到期回源、陈旧拒绝、版本回退拒绝、身份串号拒绝、事件失效、`cache-ttl=0s`；**注入 FAIL_CLOSED 时过期即拒绝且不打标记**、**注入 STALE_CACHE 时上限内放行并打标记**、超上限拒绝、版本回退与身份串号在任何策略下都硬拒绝 |
 | `SecondAppOnboardingTest`（P1） | 第二接入方零代码获得缓存与事件失效、陈旧快照绝不放行 |
+| `CedarNativeSupport` + `CedarEvaluatorTest` / `CharterCompilerTest`（Tioka 侧） | 缺 cedar-java 原生库时按 Assumptions 跳过并计入 skipped，编译侧断言照常执行，`mvn test` 退出码恢复可判定 |
 
 ## 6. 仍未完成
 
+- **标准路径降级出口未收敛**（§2.1）：`foundation-starter-security` 的 `SnapshotCache` 仍自行
+  解析 `foundation.authz.snapshot.fail-mode`，与 `Degrade.policyFor("authz")` 并存。
+  受**待决策 D4** 阻塞，本批刻意不动其行为，避免代负责人拍板授权是否允许 fail-open。
 - **自管授权导入器**（ADP-08 余下部分）：三模式与配置种子本地实现已于第四批落地（[接入运行模式](runtime-modes.md)），`SELF_MANAGED` 目前只有模式与装配位置；`SelfManagedImporter` 属 F2 范围，未实现。
 - Tioka 侧 `tioka.foundation.mode` 与 starter 侧 `foundation.client.mode` 的一致性联动（F1 接线时补启动期校验）。
 - 若干 `Http*Client`（日历 `workday` / `addWorkdays` / `diffWorkdays`、编号 `current`）在服务端返回空响应时仍返回 `null`；本批未改动，因为它们属于**业务空结果**而非「服务不可用」，需要在契约层明确定义后才能统一改成 `Optional` 或异常。

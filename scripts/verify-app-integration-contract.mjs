@@ -108,11 +108,23 @@ check(exists(CLIENT_AUTHZ + 'AuthorizationSnapshot.java')
   '平台版本化缓存、装饰器与事件监听器齐备');
 check(cacheJava.includes('fetched.version() < current.snapshot().version()'),
   '缓存拒绝版本回退，避免权限回退');
-check(cacheJava.includes('return null') && cacheJava.includes('current.expired(now)')
-  && !cacheJava.includes('allowStale'),
-  '缓存过期后必须回源，回源失败一律返回 null，无过期放行分支');
 check(cacheJava.includes('!personId.equals(fetched.personId())'),
   '回源结果按身份与应用校验，防串号');
+
+// ADP-08 单一真相源：降级策略只有一个决策出口（Degrade.policyFor），缓存不自带出口
+check(cacheJava.includes('DegradePolicy degradePolicy'),
+  '缓存消费注入的降级策略，而非自行决定');
+check(!cacheJava.includes('@ConfigurationProperties')
+  && !cacheJava.includes('"stale"') && !cacheJava.includes('failMode'),
+  '缓存不解析任何降级配置键，杜绝第二处 fail-mode 出口');
+check(cacheJava.includes('degradePolicy != DegradePolicy.STALE_CACHE'),
+  '陈旧兜底只在平台策略显式为 STALE_CACHE 时可达');
+check(cacheJava.includes('this.degradePolicy = degradePolicy == null ? DegradePolicy.FAIL_CLOSED'),
+  '缺省构造器一律 FAIL_CLOSED，默认行为不可放宽');
+check(cacheJava.includes('DegradeContext.mark()'),
+  '唯一放行出口必须打降级标记供审计与响应头使用');
+check(cacheJava.includes('// 以下为确定性数据错误'),
+  '版本回退与身份串号与降级策略解耦，永远硬拒绝');
 check(read(CLIENT_AUTHZ + 'HttpAuthorizationSnapshotClient.java').includes('versionNode'),
   '轻量客户端保留版本号供缓存使用');
 const clientAuto = read(P + 'foundation-starter-client/src/main/java/com/foundation/starter/client/config/FoundationClientAutoConfiguration.java');
@@ -122,6 +134,9 @@ check(clientAuto.includes('CachingAuthorizationSnapshotClient')
   '接入模式默认自动装配缓存、失效钩子与事件入口，应用零代码');
 check(clientAuto.includes('getClient().getAuthz()'),
   '轻量路径缓存配置收敛在 foundation.client.* 命名空间');
+check(clientAuto.includes('degrade.policyFor("authz")'),
+  '装配层把平台唯一出口 policyFor("authz") 注入缓存，不在别处解析');
+
 
 const eventContract = JSON.parse(read(P
   + 'foundation-starter-mq/src/main/resources/contracts/event-schemas-v1.json'));

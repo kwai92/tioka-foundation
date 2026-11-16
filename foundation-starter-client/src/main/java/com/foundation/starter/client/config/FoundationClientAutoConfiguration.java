@@ -118,14 +118,18 @@ public class FoundationClientAutoConfiguration {
     }
 
     /**
-     * 平台侧版本化缓存（P1）：TTL 只作事件丢失兜底，过期且回源失败一律拒绝，不提供过期放行开关。
+     * 平台侧版本化缓存（P1）：TTL 只作事件丢失兜底。降级策略取自平台唯一出口
+     * {@link FoundationClientProperties.Degrade#policyFor(String)}，本处不自行解析配置——
+     * 授权能力不在白名单，实际恒为 {@link DegradePolicy#FAIL_CLOSED}，过期且回源失败即拒绝。
      */
     @Bean
     @ConditionalOnMissingBean
     public AuthorizationSnapshotCache authorizationSnapshotCache(FoundationProperties foundationProperties,
                                                                    FoundationClientProperties properties) {
+        FoundationClientProperties.Degrade degrade = properties.getClient().getDegrade();
         return new AuthorizationSnapshotCache(foundationProperties.getAppCode(),
-                properties.getClient().getAuthz().getCacheTtl());
+                properties.getClient().getAuthz().getCacheTtl(), Clock.systemUTC(),
+                degrade.policyFor("authz"), degrade.getMaxStale());
     }
 
     /** 失效钩子默认指向平台缓存，使 ADR-051 六项自检里的「快照失效」在生产接入中自动成立。 */

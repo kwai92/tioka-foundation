@@ -1,6 +1,8 @@
 package com.foundation.starter.client.authz;
 
+import com.foundation.starter.client.config.DegradePolicy;
 import com.foundation.starter.client.integration.SnapshotInvalidationHook;
+import com.foundation.starter.core.context.DegradeContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,6 +29,16 @@ import java.util.function.Supplier;
  *       否则拒绝，防止网关串号或跨应用快照。</li>
  * </ol>
  *
+ * <p><b>降级策略不自带出口</b>（ADP-08 单一真相源）：本类不解析任何配置，只消费构造时注入的
+ * {@link DegradePolicy}，该值必须来自 {@code FoundationClientProperties.Degrade#policyFor("authz")}。
+ * 由于 {@code authz} 不在降级白名单内，{@code policyFor} 恒返回 {@link DegradePolicy#FAIL_CLOSED}，
+ * 因此默认与历史行为逐字一致：过期即拒绝。若日后待决策 D4 拍板允许授权降级，
+ * 只需把 {@code authz} 纳入白名单，<b>本类无需任何改动</b>即可生效，不存在第二处要同步的实现。
+ *
+ * <p>标准路径 {@code foundation-starter-security} 的 {@code SnapshotCache} 目前仍自行解析
+ * {@code foundation.authz.snapshot.fail-mode}，是尚未收敛到本出口的第二个决策点；其行为归属
+ * 待决策 D4，收敛动作登记于 36 号规划 §22，本类不代其拍板。
+ *
  * <p>键含 {@code appCode} 与 {@code personId}，同一进程内多个应用互不串缓存。
  * 本实现是进程内缓存；多实例部署时事件广播必须覆盖全部实例，否则仍由 TTL 收敛。
  * 不使用 synchronized / ReentrantLock（48-CS §4），按 key 用 {@link ConcurrentHashMap#compute}
@@ -42,13 +54,27 @@ public final class AuthorizationSnapshotCache implements SnapshotInvalidationHoo
     private final String appCode;
     private final long ttlMillis;
     private final Clock clock;
+    /** 过期兜底策略；授权能力恒为 FAIL_CLOSED，保留参数是为了让决策只有一个来源。 */
+    private final DegradePolicy degradePolicy;
+    /** {@code STALE_CACHE} 时可容忍的最大陈旧时长；FAIL_CLOSED 下不参与判定。 */
+    private final long maxStaleMillis;
     private final Map<String, Entry> entries = new ConcurrentHashMap<>();
 
+    /** 兼容构造器：未声明策略时一律 FAIL_CLOSED（与 P1 落地时行为逐字一致）。 */
     public AuthorizationSnapshotCache(String appCode, Duration ttl) {
         this(appCode, ttl, Clock.systemUTC());
     }
 
     public AuthorizationSnapshotCache(String appCode, Duration ttl, Clock clock) {
+        this(appCode, ttl, clock, DegradePolicy.FAIL_CLOSED, Duration.ofMinutes(10));
+    }
+
+    /**
+     * @param degradePolicy 必须取自 {@code Degrade#policyFor("authz")}，不得由接入方自行声明
+     * @param maxStale      {@code STALE_CACHE} 时的陈旧上限；{@code null} 按 10 分钟处理
+     */
+    public AuthorizationSnapshotCache(String appCode, Duration ttl, Clock clock,
+                                     DegradePolicy degradePolicy, Duration maxStale) {
         if (appCode == null || appCode.isBlank()) {
             throw new IllegalArgumentException("appCode is required");
         }
@@ -58,6 +84,8 @@ public final class AuthorizationSnapshotCache implements SnapshotInvalidationHoo
         this.appCode = appCode;
         this.ttlMillis = ttl.toMillis();
         this.clock = clock == null ? Clock.systemUTC() : clock;
+        this.degradePolicy = degradePolicy == null ? DegradePolicy.FAIL_CLOSED : degradePolicy;
+        this.maxStaleMillis = (maxStale == null ? Duration.ofMinutes(10) : maxStale).toMillis();
     }
 
     /** 组成缓存键（应用 + 人员；版本由条目携带并逐次比较）。 */
@@ -66,7 +94,12 @@ public final class AuthorizationSnapshotCache implements SnapshotInvalidationHoo
     }
 
     /**
-     * 取新鲜快照。命中直接返回；未命中/已过期则回源，失败一律返回 {@code null}。
+     * 取新鲜快照。命中直接返回；未命中/已过期则回源，失败时按平台降级策略处理。
+     *
+     * <p>回源不可用（抛异常或返回 {@code null}）与确定性数据错误（版本回退、身份串号）
+     * <b>处理方式不同</b>：前者在中台故障语义下，若平台策略允许则可短暂使用过期快照；
+     * 后者说明拿到了「结构正确但内容错误」的数据，无论策略如何都直接拒绝——
+     * 与标准路径 {@code SnapshotCache} 对 {@code BizException} 不做降级的处理一致。
      *
      * @param loader 回源函数，允许返回 {@code null} 或抛运行时异常表示中台不可用
      */
@@ -83,16 +116,26 @@ public final class AuthorizationSnapshotCache implements SnapshotInvalidationHoo
             try {
                 fetched = loader.get();
             } catch (RuntimeException ex) {
+                Entry stale = staleOrNull(current, personId, now,
+                        "缓存未命中且回源异常", ex.getClass().getSimpleName());
+                if (stale != null) {
+                    return stale;
+                }
                 log.warn("AUDIT foundation.authz.snapshot.deny 缓存未命中且回源异常，拒绝放行："
                                 + "appCode={} personId={} cause={}",
                         appCode, personId, ex.getClass().getSimpleName());
                 return null;
             }
             if (fetched == null) {
+                Entry stale = staleOrNull(current, personId, now, "缓存未命中且快照不可用", null);
+                if (stale != null) {
+                    return stale;
+                }
                 log.warn("AUDIT foundation.authz.snapshot.deny 缓存未命中且快照不可用，拒绝放行："
                         + "appCode={} personId={}", appCode, personId);
                 return null;
             }
+            // 以下为确定性数据错误：平台策略不得放宽，一律拒绝
             if (!personId.equals(fetched.personId()) || !appCode.equals(fetched.appCode())) {
                 log.warn("AUDIT foundation.authz.snapshot.deny 回源身份与请求不一致，拒绝放行："
                                 + "appCode={} personId={} returnedApp={} returnedPerson={}",
@@ -108,6 +151,31 @@ public final class AuthorizationSnapshotCache implements SnapshotInvalidationHoo
             return new Entry(fetched, now + ttlMillis);
         });
         return result == null ? null : result.snapshot();
+    }
+
+    /**
+     * 唯一允许「过期授权被使用」的出口，且只有在平台策略显式为 {@code STALE_CACHE} 时可达。
+     *
+     * <p>授权能力不在降级白名单内，{@code policyFor("authz")} 恒为 {@code FAIL_CLOSED}，
+     * 故默认永远返回 {@code null}。保留该分支是为了让 D4 一旦拍板允许降级，
+     * 只需改白名单一处，而不是在两条路径各加一份实现。放行时必须留审计与降级标记。
+     */
+    private Entry staleOrNull(Entry current, String personId, long now, String reason, String cause) {
+        if (degradePolicy != DegradePolicy.STALE_CACHE || current == null) {
+            return null;
+        }
+        long staleMillis = now - current.expiresAtMillis();
+        if (staleMillis > maxStaleMillis) {
+            log.warn("AUDIT foundation.authz.snapshot.deny 过期快照超出上限，拒绝降级："
+                            + "appCode={} personId={} staleMs={} maxMs={}",
+                    appCode, personId, staleMillis, maxStaleMillis);
+            return null;
+        }
+        log.warn("AUDIT foundation.authz.snapshot.degrade 授权快照降级放行："
+                        + "appCode={} personId={} staleMs={} reason={}",
+                appCode, personId, staleMillis, reason + (cause == null ? "" : "：" + cause));
+        DegradeContext.mark();
+        return current;
     }
 
     /**

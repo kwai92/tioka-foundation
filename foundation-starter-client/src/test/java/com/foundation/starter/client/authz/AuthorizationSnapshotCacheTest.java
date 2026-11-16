@@ -1,5 +1,9 @@
 package com.foundation.starter.client.authz;
 
+import com.foundation.starter.client.config.DegradePolicy;
+import com.foundation.starter.core.context.DegradeContext;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
@@ -23,6 +27,17 @@ class AuthorizationSnapshotCacheTest {
     private static final String PERSON = "person-001";
 
     private final MutableClock clock = new MutableClock(Instant.parse("2026-11-16T00:00:00Z"));
+
+    /** DegradeContext 是 ThreadLocal，用例间必须清理，避免降级标记串到别的断言。 */
+    @BeforeEach
+    void clearDegrade() {
+        DegradeContext.clear();
+    }
+
+    @AfterEach
+    void clearDegradeAfter() {
+        DegradeContext.clear();
+    }
 
     private AuthorizationSnapshotCache cache() {
         return new AuthorizationSnapshotCache(APP, Duration.ofMinutes(5), clock);
@@ -162,6 +177,77 @@ class AuthorizationSnapshotCacheTest {
     void 缓存键含应用编码_不同应用不串() {
         assertFalse(AuthorizationSnapshotCache.cacheKey("tioka", PERSON)
                 .equals(AuthorizationSnapshotCache.cacheKey("tioka-ai", PERSON)));
+    }
+
+    /**
+     * ADP-08 单一真相源：策略不是本类自己决定的，而是注入进来的。
+     *
+     * <p>授权能力恒由 {@code policyFor("authz")} 求值为 FAIL_CLOSED，所以默认路径
+     * 与 P1 落地时逐字一致。这组用例证明：若待决策 D4 拍板允许授权降级，
+     * 只需把 {@code authz} 纳入降级白名单，<b>本类无需任何改动</b>即可生效，
+     * 不存在第二处要同步的实现。
+     */
+    @Test
+    void 默认策略为FAIL_CLOSED时过期即拒绝() {
+        AuthorizationSnapshotCache cache = new AuthorizationSnapshotCache(APP,
+                Duration.ofMinutes(5), clock, DegradePolicy.FAIL_CLOSED, Duration.ofMinutes(10));
+        cache.get(PERSON, () -> view(PERSON, 7, "agent:read"));
+        clock.advance(Duration.ofMinutes(5));
+
+        assertNull(cache.get(PERSON, () -> null));
+        assertEquals(0, cache.size());
+        assertFalse(DegradeContext.isMarked(), "拒绝路径不得打降级标记");
+    }
+
+    @Test
+    void 平台策略改为STALE_CACHE时在陈旧上限内放行并打降级标记() {
+        AuthorizationSnapshotCache cache = new AuthorizationSnapshotCache(APP,
+                Duration.ofMinutes(5), clock, DegradePolicy.STALE_CACHE, Duration.ofMinutes(10));
+        cache.get(PERSON, () -> view(PERSON, 7, "agent:read"));
+        clock.advance(Duration.ofMinutes(6));
+
+        AuthorizationSnapshot stale = cache.get(PERSON, () -> null);
+        assertEquals(Set.of("agent:read"), stale.permissions(), "上限内返回过期快照");
+        assertEquals(7, stale.version());
+        assertTrue(DegradeContext.isMarked(), "降级放行必须打标记供响应头与审计使用");
+        assertFalse(cache.isLive(PERSON), "条目仍是过期的，下次取用会再次尝试回源");
+        assertEquals(Long.valueOf(7), cache.cachedVersion(PERSON), "条目保留，中台持续故障时仍可兜底");
+    }
+
+    @Test
+    void STALE_CACHE超出陈旧上限仍拒绝() {
+        AuthorizationSnapshotCache cache = new AuthorizationSnapshotCache(APP,
+                Duration.ofMinutes(5), clock, DegradePolicy.STALE_CACHE, Duration.ofMinutes(10));
+        cache.get(PERSON, () -> view(PERSON, 7, "agent:read"));
+        clock.advance(Duration.ofMinutes(20));
+
+        assertNull(cache.get(PERSON, () -> null), "超出陈旧上限不得放行");
+        assertEquals(0, cache.size(), "不再可用的陈旧条目必须删除");
+        assertFalse(DegradeContext.isMarked());
+    }
+
+    @Test
+    void STALE_CACHE不因版本回退而放行_数据错误不等于中台不可用() {
+        AuthorizationSnapshotCache cache = new AuthorizationSnapshotCache(APP,
+                Duration.ofMinutes(5), clock, DegradePolicy.STALE_CACHE, Duration.ofMinutes(10));
+        cache.get(PERSON, () -> view(PERSON, 7, "agent:read"));
+        clock.advance(Duration.ofMinutes(6));
+
+        // 中台可达但返回了更旧的版本（从库延迟 / 乱序）：这是数据错误，不是「不可用」，
+        // 降级兜底不得被它触发——否则权限会静默回退到旧版本
+        assertNull(cache.get(PERSON, () -> view(PERSON, 6, "agent:read")));
+        assertFalse(DegradeContext.isMarked(), "数据错误不得被记为「降级放行」");
+    }
+
+    @Test
+    void STALE_CACHE不因身份串号而放行() {
+        AuthorizationSnapshotCache cache = new AuthorizationSnapshotCache(APP,
+                Duration.ofMinutes(5), clock, DegradePolicy.STALE_CACHE, Duration.ofMinutes(10));
+
+        // 无缓存 + 回源身份串号：没有任何可信快照，必须拒绝而非兜底
+        assertNull(cache.get(PERSON, () -> view("someone-else", 8, "agent:write")));
+        assertEquals(0, cache.size(), "串号数据不得入缓存");
+        assertFalse(DegradeContext.isMarked());
     }
 
     private static final class MutableClock extends Clock {
