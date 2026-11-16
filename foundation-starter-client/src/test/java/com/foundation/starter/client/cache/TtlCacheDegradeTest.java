@@ -93,6 +93,51 @@ class TtlCacheDegradeTest {
         assertFalse(DegradeContext.isMarked());
     }
 
+    @Test
+    void 回源耗时不吃掉缓存TTL_两种取值入口一致() {
+        TtlCache<String, String> degrade = new TtlCache<>(1_000, clock);
+        degrade.getWithDegrade("k", () -> {
+            clock.advance(Duration.ofMillis(900));
+            return "v1";
+        });
+        // TTL 若按「回源前」的时钟写入，此时仅剩 100ms，推进 200ms 会误判过期并重新回源
+        clock.advance(Duration.ofMillis(200));
+        assertEquals("v1", degrade.getWithDegrade("k", () -> { throw new AssertionError("不应回源"); }));
+
+        TtlCache<String, String> plain = new TtlCache<>(1_000, clock);
+        plain.get("g", () -> {
+            clock.advance(Duration.ofMillis(900));
+            return "v2";
+        });
+        clock.advance(Duration.ofMillis(200));
+        assertTrue(plain.peek("g").isPresent(), "普通 get 的 TTL 同样必须从回源结束起算");
+    }
+
+    @Test
+    void 回源耗时计入陈旧时长_超上限必须拒绝() {
+        TtlCache<String, String> cache = new TtlCache<>(1_000, clock,
+                DegradePolicy.STALE_CACHE, 1_000);
+        cache.getWithDegrade("k", () -> "v1");      // expiresAt = t0 + 1000
+        clock.advance(Duration.ofMillis(1_500));     // 已过期 500ms，仍在上限内
+
+        assertThrows(FoundationUnavailableException.class,
+                () -> cache.getWithDegrade("k", () -> {
+                    // 回源期间时钟前进 700ms：真实陈旧 = 1200ms > 上限 1000ms，必须拒绝
+                    clock.advance(Duration.ofMillis(700));
+                    throw new IllegalStateException("foundation down");
+                }));
+        assertFalse(DegradeContext.isMarked(), "超上限拒绝不能打降级标记");
+    }
+
+    @Test
+    void 降级拒绝异常携带503错误码而非被当成服务端500() {
+        TtlCache<String, String> cache = new TtlCache<>(1_000, clock);
+        FoundationUnavailableException ex = assertThrows(FoundationUnavailableException.class,
+                () -> cache.getWithDegrade("k", () -> { throw new IllegalStateException("down"); }));
+        assertEquals(com.foundation.common.api.error.ErrorCode.SERVICE_UNAVAILABLE,
+                ex.getErrorCode());
+    }
+
     private static final class MutableClock extends Clock {
 
         private Instant now = Instant.parse("2026-01-01T00:00:00Z");

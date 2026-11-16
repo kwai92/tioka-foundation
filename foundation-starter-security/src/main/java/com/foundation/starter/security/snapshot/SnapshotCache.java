@@ -115,6 +115,10 @@ public class SnapshotCache implements AuthzSnapshotClient {
         AuthzSnapshot fetched;
         try {
             fetched = fetcher.load(appCode, personId);
+        } catch (BizException ex) {
+            // 确定性业务拒绝（如 403）不是回源故障，不能用过期快照掩盖后放行；
+            // 与 version() 的判定保持一致（授权必须 fail-closed）。
+            throw ex;
         } catch (RuntimeException ex) {
             // 已过期（或不存在）且取不到 → 默认降级拒绝；显式配置 stale 时才可放行过期快照
             return staleOrDeny(personId, "授权快照不可用：缓存已过期且回源失败", ex);

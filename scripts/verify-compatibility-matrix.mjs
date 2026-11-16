@@ -88,26 +88,59 @@ check(sameSet([...foundCapabilities], matrix.capabilities),
 
 // ---------------------------------------------------------------- 锁定技术栈
 const compose = read('deploy/compose.yml');
+const lockedStack = matrix.server.lockedStack ?? [];
+check(lockedStack.length === matrix.server.lockedStackImages.length,
+  'CM-05：lockedStack 与 lockedStackImages 数量不一致，锁定栈声明已漂移');
+// 契约产品名 -> compose 关键字；新增中间件必须同时在这里登记，否则脚本拒绝放行
+const stackAliases = {
+  PostgreSQL: 'postgres',
+  Redis: 'redis',
+  RocketMQ: 'rocketmq',
+  Keycloak: 'keycloak',
+  MinIO: 'minio',
+};
+const composeLower = compose.toLowerCase();
+for (const product of lockedStack) {
+  const keyword = stackAliases[product];
+  check(Boolean(keyword), `CM-05：lockedStack 新增了未登记的产品 ${product}`);
+  check(Boolean(keyword) && composeLower.includes(keyword),
+    `CM-05：deploy/compose.yml 缺少 ${product} 对应组件`);
+}
 for (const image of matrix.server.lockedStackImages) {
   check(compose.includes(image), `deploy/compose.yml 缺少锁定栈镜像 ${image}`);
 }
-check(matrix.server.notAdapted.length >= 3, 'CM-05：notAdapted 清单不得为空，适配边界必须显式声明');
+const notAdapted = matrix.server.notAdapted ?? [];
+check(notAdapted.length >= 3
+  && notAdapted.every((item) => typeof item === 'string' && item.trim().length > 0),
+  'CM-05：notAdapted 清单不得为空，适配边界必须显式声明');
 
 // ---------------------------------------------------------------- CI 矩阵
 const ci = read('.github/workflows/ci.yml');
 const axes = matrix.ciMatrix.axes;
 check(ci.includes(`mode: [${axes.mode.join(', ')}]`), 'CI 矩阵 mode 轴与契约不一致');
 check(ci.includes(`profile: [${axes.profile.join(', ')}]`), 'CI 矩阵 profile 轴与契约不一致');
-check(ci.includes('FOUNDATION_COMPAT_MODE') && ci.includes('FOUNDATION_COMPAT_PROFILE'),
-  'CI 未把组合注入探针环境变量，矩阵会退化成空跑');
+const ciCode = ci.split('\n').filter((line) => !/^\s*#/.test(line)).join('\n');
+check(/FOUNDATION_COMPAT_MODE\s*:/.test(ciCode) && /FOUNDATION_COMPAT_PROFILE\s*:/.test(ciCode),
+  'CI 未把组合注入探针环境变量（注释里出现不算），矩阵会退化成空跑');
 check(ci.includes('node --test sdk-examples/node/test/client.test.mjs'),
   'CI 未运行 C 类 Node 接入包自检');
 
+check(sameSet(axes.mode, matrix.runtimeModes),
+  'CI 矩阵 mode 轴必须覆盖全部运行模式，不能悄悄少跑一档');
+check(axes.profile.length > 0 && axes.profile.every((p) => matrix.serverProfiles.includes(p)),
+  'CI 矩阵 profile 轴包含未在 serverProfiles 中声明的档位');
 const cartesian = axes.mode.flatMap((mode) => axes.profile.map((profile) => `${mode}/${profile}`));
 check(sameSet(cartesian, matrix.ciMatrix.combinations),
   `ciMatrix.combinations 不是两轴笛卡尔积：契约 ${matrix.ciMatrix.combinations} / 应为 ${cartesian}`);
-check(matrix.server.javaPlannedUnverified.every((v) => !ci.includes(`java-version: '${v}'`)),
+const ciJavaVersions = [...ci.matchAll(/java-version:\s*['"]?(\d+)['"]?/g)].map((m) => m[1]);
+check(matrix.server.javaPlannedUnverified.every((v) => !ciJavaVersions.includes(String(v))),
   'CM-06 违规：未经验证的 JDK 版本不得进入 CI 矩阵');
+// 规则清单与 SDK 基线不得被删改后仍然全绿
+const ruleIds = (matrix.rules ?? []).map((rule) => rule.id);
+check(sameSet(ruleIds, ['CM-01', 'CM-02', 'CM-03', 'CM-04', 'CM-05', 'CM-06']),
+  '兼容矩阵 rules 缺项，守门规则被删改');
+check(sameSet(matrix.sdk.java, matrix.server.java) && /^>=\d+$/.test(matrix.sdk.node),
+  'SDK 基线（JDK / Node）与服务端锁定栈不一致');
 
 // ---------------------------------------------------------------- 输出
 if (errors.length > 0) {

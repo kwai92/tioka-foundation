@@ -12,13 +12,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class FoundationRuntimeModeTest {
 
     @Test
-    void 缺省为接入中台模式() {
+    void 未配置时为接入中台模式_但空值必须拒绝() {
         assertEquals(FoundationRuntimeMode.FOUNDATION, FoundationRuntimeMode.parse(null));
-        assertEquals(FoundationRuntimeMode.FOUNDATION, FoundationRuntimeMode.parse("  "));
         assertEquals(FoundationRuntimeMode.FOUNDATION,
                 FoundationRuntimeMode.from(new MockEnvironment()));
         assertTrue(FoundationRuntimeMode.FOUNDATION.requiresRemoteFoundation());
         assertFalse(FoundationRuntimeMode.FOUNDATION.isStandalone());
+
+        // 键存在但为空：环境变量注入失败的典型形态，不能静默回落成「连中台」
+        assertThrows(IllegalArgumentException.class, () -> FoundationRuntimeMode.parse(""));
+        assertThrows(IllegalArgumentException.class, () -> FoundationRuntimeMode.parse("   "));
+        MockEnvironment blank = new MockEnvironment()
+                .withProperty(FoundationRuntimeMode.PROPERTY, "  ");
+        assertThrows(IllegalArgumentException.class, () -> FoundationRuntimeMode.from(blank));
     }
 
     @Test

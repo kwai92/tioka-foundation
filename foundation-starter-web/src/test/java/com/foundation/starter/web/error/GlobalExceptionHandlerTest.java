@@ -51,6 +51,14 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void upstreamUnavailableReturns503WithDedicatedCode() throws Exception {
+        mockMvc.perform(get("/unavailable"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value(ErrorCode.SERVICE_UNAVAILABLE.getCode()))
+                .andExpect(jsonPath("$.message").value("upstream down"));
+    }
+
+    @Test
     void invalidBodyReturns400WithFieldMessage() throws Exception {
         mockMvc.perform(post("/valid")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -89,6 +97,11 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/boom")
         public String boom() {
             throw new IllegalStateException("boom");
+        }
+
+        @GetMapping("/unavailable")
+        public String unavailable() {
+            throw new BizException(ErrorCode.SERVICE_UNAVAILABLE, "upstream down");
         }
 
         @PostMapping("/valid")

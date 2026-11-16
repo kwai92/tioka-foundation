@@ -26,7 +26,9 @@ public class FoundationCapabilityCondition implements Condition {
         Map<String, Object> attributes =
                 metadata.getAnnotationAttributes(ConditionalOnFoundationCapability.class.getName());
         if (attributes == null) {
-            return true;
+            // 无法取得注解属性时按「未满足条件」处理，避免 foundation.enabled=false
+            // 被绕过（与 FoundationRuntimeModeCondition 的 fail-closed 口径一致）。
+            return false;
         }
         Object rawCapability = attributes.get("value");
         String capability = rawCapability == null ? null : rawCapability.toString();

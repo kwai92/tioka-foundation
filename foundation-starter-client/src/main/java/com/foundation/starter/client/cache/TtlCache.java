@@ -70,8 +70,10 @@ public class TtlCache<K, V> {
             return entry.value();
         }
         V value = loader.get();
+        // TTL 必须从「回源结束」起算：回源可能重试数秒，用请求开始时刻会刚写入就过期
+        long loadedAt = clock.millis();
         if (value != null) {
-            entries.put(key, new Entry<>(value, now + ttlMillis));
+            entries.put(key, new Entry<>(value, loadedAt + ttlMillis));
         } else {
             entries.remove(key);
         }
@@ -91,20 +93,23 @@ public class TtlCache<K, V> {
         }
         try {
             V value = loader.get();
+            long loadedAt = clock.millis();
             if (value != null) {
-                entries.put(key, new Entry<>(value, now + ttlMillis));
+                entries.put(key, new Entry<>(value, loadedAt + ttlMillis));
             } else {
                 entries.remove(key);
             }
             return value;
         } catch (RuntimeException ex) {
-            return fallback(key, entry, now, ex);
+            return fallback(key, entry, ex);
         }
     }
 
-    private V fallback(K key, Entry<V> stale, long now, RuntimeException cause) {
+    private V fallback(K key, Entry<V> stale, RuntimeException cause) {
         if (degradePolicy == DegradePolicy.STALE_CACHE && stale != null) {
-            long staleMillis = now - stale.expiresAtMillis();
+            // 陈旧时长必须按「回源失败时的真实时钟」计算；用回源前的 now 会低估陈旧、
+            // 放行本应超出上限拒绝的过期数据。
+            long staleMillis = clock.millis() - stale.expiresAtMillis();
             if (staleMillis <= maxStaleMillis) {
                 onStale.accept(key, staleMillis);
                 DegradeContext.mark();

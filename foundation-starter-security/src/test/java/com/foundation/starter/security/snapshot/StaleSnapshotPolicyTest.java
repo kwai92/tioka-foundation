@@ -96,6 +96,23 @@ class StaleSnapshotPolicyTest {
     }
 
     @Test
+    void 确定性业务拒绝不被当成回源故障降级放行() {
+        MutableClock clock = new MutableClock();
+        StubFetcher fetcher = new StubFetcher();
+        SnapshotCache cache = cache(clock, fetcher, Duration.ofMinutes(2));
+        fetcher.next = snapshot(1);
+        cache.load(PERSON);
+        clock.advance(Duration.ofMinutes(5).plusSeconds(1));
+
+        BizException refusal = new BizException(ErrorCode.FORBIDDEN, "策略明确拒绝");
+        fetcher.failure = refusal;
+
+        assertThat(catchThrowable(() -> cache.load(PERSON))).isSameAs(refusal);
+        assertThat(catchThrowable(() -> cache.version(PERSON))).isSameAs(refusal);
+        assertFalse(DegradeContext.isMarked(), "确定性 403 不能被过期快照掩盖");
+    }
+
+    @Test
     void 默认配置与非法failMode() {
         FoundationAuthzProperties.Snapshot snapshot = new FoundationAuthzProperties().getSnapshot();
         assertFalse(snapshot.isStaleAllowed(), "缺省必须 deny");

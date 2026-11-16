@@ -67,9 +67,10 @@ test('Node 侧常量与 Java / JSON 契约逐项对齐（防跨语言漂移）',
     '签名必须覆盖原始 envelope 字节，而不是重序列化结果');
   assert.match(sinkJava, /SIGNATURE_HEADER\s*=\s*"X-Fdn-Signature"/);
 
+  // 常量真正的定义在 core 的 DegradeContext；读 filter 的 javadoc 会在常量改过之后仍误绿
   const degradeJava = read(
-    'foundation-starter-web/src/main/java/com/foundation/starter/web/filter/DegradeHeaderFilter.java');
-  assert.match(degradeJava, new RegExp(DEGRADED_HEADER));
+    'foundation-starter-core/src/main/java/com/foundation/starter/core/context/DegradeContext.java');
+  assert.equal(degradeJava.match(/HEADER\s*=\s*"([^"]+)"/)[1], DEGRADED_HEADER);
 });
 
 test('契约中所有已登记事件都能被验签解析', () => {
@@ -230,4 +231,37 @@ test('降级标记读取', () => {
   assert.equal(isDegraded({ 'x-foundation-degraded': 'TRUE' }), true);
   assert.equal(isDegraded({}), false);
   assert.equal(isDegraded({ [DEGRADED_HEADER]: 'false' }), false);
+});
+
+// ---------------------------------------------------------------- 契约边界补强
+
+test('Uint8Array 与 ArrayBuffer 原始字节同样可以验签', () => {
+  const { raw, headers } = signed();
+  const view = new Uint8Array(raw);
+  assert.equal(verifyWebhook(view, headers, SECRET).deliveryId, 'evt_1');
+  const buffer = view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength);
+  assert.equal(verifyWebhook(buffer, headers, SECRET).deliveryId, 'evt_1');
+});
+
+test('空白密钥与空契约对象均被拒绝', () => {
+  const { raw, headers } = signed();
+  assert.throws(() => verifyWebhook(raw, headers, '   '),
+    (e) => e.code === 'SECRET_REQUIRED');
+  assert.throws(() => verifyWebhook(raw, headers, SECRET, { contract: {} }),
+    (e) => e.code === 'CONTRACT_INVALID');
+});
+
+test('出站主版本只接受本 SDK 支持的集合', () => {
+  assert.equal(buildApiHeaders()[API_VERSION_HEADER], String(CURRENT_API_MAJOR));
+  assert.throws(() => buildApiHeaders({ apiVersion: 2 }),
+    (e) => e.code === 'UNSUPPORTED_API_VERSION');
+});
+
+test('非 2xx 响应不会被静默当成成功', () => {
+  assert.throws(() => assertApiResponse({ status: 503, headers: {} }),
+    (e) => e.code === 'HTTP_ERROR');
+  assert.throws(() => assertApiResponse({ status: 401, headers: {} }),
+    (e) => e.code === 'HTTP_ERROR');
+  assert.equal(assertApiResponse({ status: 204, headers: {} }), undefined);
+  assert.equal(assertApiResponse({}), undefined);
 });

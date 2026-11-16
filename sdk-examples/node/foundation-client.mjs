@@ -32,6 +32,9 @@ export const SIGNATURE_HEADER = 'X-Fdn-Signature';
 export const SIGNATURE_PREFIX = 'sha256=';
 export const SUPPORTED_SCHEMA_VERSIONS = Object.freeze([1]);
 
+/** 本参考实现能解析的 REST 主版本；与 assertApiResponse 的缺省 requestedMajor 必须同源。 */
+export const SUPPORTED_API_MAJORS = Object.freeze([CURRENT_API_MAJOR]);
+
 /** 带业务错误码的契约异常，便于接入方映射成自己的 4xx / 告警。 */
 export class ContractError extends Error {
   constructor(code, message) {
@@ -43,6 +46,23 @@ export class ContractError extends Error {
 
 const fail = (code, message) => {
   throw new ContractError(code, message);
+};
+
+/** 原始字节的合法形态：Buffer / ArrayBufferView（含 Uint8Array）/ ArrayBuffer。 */
+const isBinary = (value) => Buffer.isBuffer(value)
+  || ArrayBuffer.isView(value)
+  || value instanceof ArrayBuffer;
+
+/** 已解析的 JSON 对象不得用于验签；二进制形态一律接受，避免 fetch/Workers 接入方被迫转换。 */
+const isParsedObject = (value) => value !== null
+  && typeof value === 'object' && !isBinary(value);
+
+/** 无损转成 Buffer，不重序列化、不改变字节。 */
+const toRawBytes = (value) => {
+  if (Buffer.isBuffer(value)) return value;
+  if (typeof value === 'string') return Buffer.from(value, 'utf8');
+  if (value instanceof ArrayBuffer) return Buffer.from(value);
+  return Buffer.from(value.buffer, value.byteOffset, value.byteLength);
 };
 
 /** 读取随 jar 发布的事件契约；默认指向仓库内权威文件。 */
@@ -69,6 +89,10 @@ export function buildApiHeaders({ apiVersion = CURRENT_API_MAJOR, headers = {} }
   if (!Number.isInteger(apiVersion) || apiVersion < 1) {
     fail('API_VERSION_MALFORMED', 'apiVersion 必须是正整数，当前为 ' + apiVersion);
   }
+  if (!SUPPORTED_API_MAJORS.includes(apiVersion)) {
+    fail('UNSUPPORTED_API_VERSION',
+      '本 SDK 仅支持 REST 主版本 ' + SUPPORTED_API_MAJORS.join(',') + '，当前请求 ' + apiVersion);
+  }
   return { ...headers, [API_VERSION_HEADER]: String(apiVersion) };
 }
 
@@ -82,6 +106,9 @@ export function assertApiResponse({ status, headers, body } = {}, requestedMajor
   }
   if (status === 406) {
     fail('UNSUPPORTED_API_VERSION', '服务端不支持所请求的主版本：' + describeBody(body));
+  }
+  if (status !== undefined && (!Number.isInteger(status) || status < 200 || status >= 300)) {
+    fail('HTTP_ERROR', 'HTTP 状态 ' + status + ' 不是成功响应，不能按成功结果解析');
   }
   const echoed = getHeader(headers, API_VERSION_HEADER);
   if (echoed === undefined || echoed === null || echoed === '') return undefined;
@@ -111,7 +138,7 @@ export function isDegraded(headers) {
 /**
  * 校验并解析 Webhook 投递。
  *
- * @param rawBody Buffer | string —— **必须是未解析的原始请求体字节**。
+ * @param rawBody Buffer | Uint8Array | ArrayBuffer | string —— **必须是未解析的原始请求体字节**。
  *   签名覆盖的是 Java 侧 objectMapper.writeValueAsBytes 的输出；任何 JSON.parse +
  *   JSON.stringify 的重序列化都会改键顺序 / 空格，导致验签必然失败。
  * @param headers 原始请求头
@@ -123,16 +150,19 @@ export function verifyWebhook(rawBody, headers, secret, options = {}) {
   if (rawBody === undefined || rawBody === null) {
     fail('RAW_BODY_REQUIRED', 'Webhook 验签必须使用原始请求体字节');
   }
-  if (typeof rawBody === 'object' && !Buffer.isBuffer(rawBody)) {
+  if (isParsedObject(rawBody)) {
     fail('RAW_BODY_REQUIRED', '不要传入已解析的 JSON 对象，验签必须用原始字节');
   }
-  const bytes = Buffer.isBuffer(rawBody) ? rawBody : Buffer.from(String(rawBody), 'utf8');
-  if (typeof secret !== 'string' || secret.length === 0) {
+  const bytes = toRawBytes(rawBody);
+  if (typeof secret !== 'string' || secret.trim().length === 0) {
     fail('SECRET_REQUIRED', '缺少 Webhook 签名密钥');
   }
 
   const contract = options.contract ?? loadEventContract(options.contractPath);
-  const channel = contract.webhookChannel ?? {};
+  if (!contract || typeof contract !== 'object' || !contract.webhookChannel) {
+    fail('CONTRACT_INVALID', '事件契约缺少 webhookChannel，检查 options.contractPath 是否指向随包契约');
+  }
+  const channel = contract.webhookChannel;
   if (channel.signatureHeader && channel.signatureHeader !== SIGNATURE_HEADER) {
     fail('CONTRACT_DRIFT', '契约签名头已变更：' + channel.signatureHeader);
   }

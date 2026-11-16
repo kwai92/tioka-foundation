@@ -12,6 +12,8 @@ public enum ErrorCode {
     FORBIDDEN(40300, 403, "无权限"),
     NOT_FOUND(40400, 404, "资源不存在"),
     CONFLICT(40900, 409, "资源冲突"),
+    /** 上游 Foundation 不可用且无兜底数据：网关可据此按 503 熔断/重试，不应误判为服务端 500。 */
+    SERVICE_UNAVAILABLE(50300, 503, "依赖服务不可用"),
     INTERNAL(50000, 500, "内部错误");
 
     private final int code;

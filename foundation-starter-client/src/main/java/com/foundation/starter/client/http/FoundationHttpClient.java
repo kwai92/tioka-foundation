@@ -65,6 +65,9 @@ public class FoundationHttpClient {
                 JsonNode node = parse(execute(path));
                 circuitBreaker.recordSuccess();
                 return node;
+            } catch (FoundationApiVersionMismatchException ex) {
+                // 契约错误不是上游故障：不重试、不计入熔断
+                throw ex;
             } catch (RuntimeException ex) {
                 last = ex;
                 circuitBreaker.recordFailure();
@@ -89,6 +92,7 @@ public class FoundationHttpClient {
             if (!response.isSuccessful()) {
                 throw new IllegalStateException("调用 Foundation 失败：HTTP " + response.code() + " " + path);
             }
+            assertResponseVersion(response, path);
             ResponseBody body = response.body();
             byte[] bytes = body == null ? new byte[0] : body.bytes();
             circuitBreaker.recordSuccess();
@@ -123,6 +127,8 @@ public class FoundationHttpClient {
             JsonNode node = parse(send(builder, path));
             circuitBreaker.recordSuccess();
             return node;
+        } catch (FoundationApiVersionMismatchException ex) {
+            throw ex;
         } catch (RuntimeException ex) {
             circuitBreaker.recordFailure();
             throw ex;
@@ -151,11 +157,19 @@ public class FoundationHttpClient {
         Request.Builder builder = authorized(new Request.Builder().url(baseUrl + path)).post(requestBody);
         if (headers != null) {
             headers.forEach(builder::header);
+            if (headers.keySet().stream().anyMatch(FoundationApiVersion.HEADER::equalsIgnoreCase)) {
+                log.warn("业务侧传入的 {} 已忽略，出站契约版本头强制为 {}",
+                        FoundationApiVersion.HEADER, FoundationApiVersion.CURRENT);
+            }
         }
+        // 契约头放在最后：OkHttp 的 header(name, value) 会覆盖同名头，必须保证业务头不能改写版本协商
+        builder.header(FoundationApiVersion.HEADER, FoundationApiVersion.CURRENT);
         try {
             JsonNode node = parse(send(builder, path));
             circuitBreaker.recordSuccess();
             return node;
+        } catch (FoundationApiVersionMismatchException ex) {
+            throw ex;
         } catch (RuntimeException ex) {
             circuitBreaker.recordFailure();
             throw ex;
@@ -171,6 +185,8 @@ public class FoundationHttpClient {
         try {
             send(builder, path);
             circuitBreaker.recordSuccess();
+        } catch (FoundationApiVersionMismatchException ex) {
+            throw ex;
         } catch (RuntimeException ex) {
             circuitBreaker.recordFailure();
             throw ex;
@@ -203,6 +219,7 @@ public class FoundationHttpClient {
             if (!response.isSuccessful()) {
                 throw new IllegalStateException("调用 Foundation 失败：HTTP " + response.code() + " " + path);
             }
+            assertResponseVersion(response, path);
             ResponseBody body = response.body();
             return body == null ? null : body.string();
         } catch (IOException ex) {
@@ -230,10 +247,27 @@ public class FoundationHttpClient {
             if (!response.isSuccessful()) {
                 throw new IllegalStateException("调用 Foundation 失败：HTTP " + response.code() + " " + path);
             }
+            assertResponseVersion(response, path);
             ResponseBody body = response.body();
             return body == null ? null : body.string();
         } catch (IOException ex) {
             throw new IllegalStateException("调用 Foundation 失败：" + path + "（" + ex.getMessage() + "）", ex);
+        }
+    }
+
+    /**
+     * 校验服务端回写的主版本（ADP-03）：并行发布期网关路由串版本时必须能检出，
+     * 否则客户端会拿 v1 结构解析 v2 响应。旧服务端不回写该头时保持兼容，不校验。
+     */
+    private static void assertResponseVersion(Response response, String path) {
+        String echoed = response.header(FoundationApiVersion.HEADER);
+        if (echoed == null || echoed.isBlank()) {
+            return;
+        }
+        Integer major = FoundationApiVersion.parseMajor(echoed);
+        if (major == null || major != FoundationApiVersion.CURRENT_MAJOR) {
+            throw new FoundationApiVersionMismatchException(path, echoed,
+                    FoundationApiVersion.CURRENT_MAJOR);
         }
     }
 

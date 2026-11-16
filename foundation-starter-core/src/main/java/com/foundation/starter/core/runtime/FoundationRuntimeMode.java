@@ -19,8 +19,10 @@ import java.util.Locale;
  *       授权导入器属 F2 范围，本模式先提供装配与配置的一等公民位置。</li>
  * </ul>
  *
- * <p><b>兼容基线</b>：未配置 {@code foundation.client.mode} 时按 {@link #FOUNDATION} 处理，
- * 因此存量接入方与全部既有单测零改动。
+ * <p><b>兼容基线</b>：<b>未配置</b> {@code foundation.client.mode} 时按 {@link #FOUNDATION} 处理，
+ * 因此存量接入方与全部既有单测零改动。<b>键存在但为空</b>不属于「未配置」：空串通常是
+ * 环境变量注入失败或占位符没解开，此时若回落 {@code FOUNDATION} 会静默连上中台（fail-open），
+ * 因此直接拒绝启动。
  */
 public enum FoundationRuntimeMode {
 
@@ -37,12 +39,18 @@ public enum FoundationRuntimeMode {
     public static final String PROPERTY = "foundation.client.mode";
 
     /**
-     * 宽松解析：空值按默认模式；支持大小写、连字符与下划线混用；非法值<b>直接拒绝</b>，
-     * 不静默降级——避免把拼错的模式当成 {@code FOUNDATION} 而意外连上中台。
+     * 宽松解析：{@code null} 表示配置键不存在，按默认模式；<b>空串/全空白表示键存在但值无效，
+     * 直接拒绝</b>；支持大小写、连字符与下划线混用；非法值<b>直接拒绝</b>，不静默降级——
+     * 避免把拼错或注入失败的模式当成 {@code FOUNDATION} 而意外连上中台。
      */
     public static FoundationRuntimeMode parse(String raw) {
-        if (raw == null || raw.isBlank()) {
+        if (raw == null) {
             return FOUNDATION;
+        }
+        if (raw.isBlank()) {
+            throw new IllegalArgumentException(
+                    "foundation.client.mode 已配置但为空，拒绝按默认模式连上中台；"
+                            + "请显式写 foundation|local|self-managed，或删除该配置项");
         }
         String normalized = raw.trim().toLowerCase(Locale.ROOT).replace('_', '-');
         return switch (normalized) {
