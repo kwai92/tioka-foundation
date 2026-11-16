@@ -148,7 +148,8 @@ public final class FoundationIntegrationSelfCheck {
     private IntegrationSelfCheckReport.Check checkInvalidation() {
         try {
             return hooks.getIfAvailable() == null
-                    ? check("snapshot-invalidation", WARN, "未注册快照失效钩子；P1 事件失效待接")
+                    ? check("snapshot-invalidation", WARN,
+                            "未注册快照失效钩子；授权变更只能等缓存 TTL 到期后回源")
                     : check("snapshot-invalidation", PASS, "已注册快照失效钩子");
         } catch (RuntimeException ex) {
             return check("snapshot-invalidation", FAIL, "失效钩子装配冲突：" + ex.getClass().getSimpleName());

@@ -9,8 +9,8 @@ import { readFileSync } from 'node:fs';
 
 import {
   API_VERSION_HEADER, CURRENT_API_MAJOR, DEGRADED_HEADER, SIGNATURE_HEADER,
-  SIGNATURE_PREFIX, SUPPORTED_SCHEMA_VERSIONS, assertApiResponse, buildApiHeaders,
-  createIdempotencyGuard, getHeader, isDegraded, loadEventContract, verifyWebhook,
+  SIGNATURE_PREFIX, SUPPORTED_SCHEMA_VERSIONS, assertApiResponse, assertReplayWindow,
+  buildApiHeaders, createIdempotencyGuard, getHeader, isDegraded, loadEventContract, verifyWebhook,
 } from '../foundation-client.mjs';
 
 const REPO = new URL('../../../', import.meta.url);
@@ -203,6 +203,33 @@ test('过期后可再次处理（TTL 可注入，便于测试）', () => {
   clock = 1101;
   assert.equal(guard.isNew(envelope), true);
   assert.equal(guard.size(), 1);
+});
+
+// ---------------------------------------------------------------- 防重放（P1）
+
+test('时间窗防重放：sentAt 在已签名 body 内，过期 / 未来 / 非法均拒绝', () => {
+  const now = 1_700_000_000_000;
+  const envelope = { ...ENVELOPE, sentAt: now };
+  assert.deepEqual(assertReplayWindow(envelope, { now: () => now }), { enforced: true });
+  assert.throws(() => assertReplayWindow(envelope, { now: () => now + 6 * 60 * 1000 }),
+    (e) => e.code === 'REPLAY_WINDOW_EXPIRED');
+  assert.throws(() => assertReplayWindow(envelope, { now: () => now - 60 * 1000 }),
+    (e) => e.code === 'REPLAY_WINDOW_EXPIRED');
+  assert.throws(() => assertReplayWindow({ ...ENVELOPE, sentAt: '1_700_000_000_000' },
+    { now: () => now }), (e) => e.code === 'REPLAY_WINDOW_INVALID');
+});
+
+test('v1 老中继无 sentAt 时校验不阻塞，但显式标记未启用', () => {
+  const result = assertReplayWindow(ENVELOPE, { now: () => 1_700_000_000_000 });
+  assert.equal(result.enforced, false);
+  assert.equal(result.reason, 'V1_ENVELOPE_WITHOUT_SENT_AT');
+});
+
+test('带 sentAt 的 envelope 仍能通过 v1 验签（兼容增补零破坏）', () => {
+  const withSentAt = { ...ENVELOPE, sentAt: 1_700_000_000_000 };
+  const { raw, headers } = signed(withSentAt);
+  assert.equal(verifyWebhook(raw, headers, SECRET).deliveryId, 'evt_1');
+  assert.equal(JSON.parse(raw.toString('utf8')).sentAt, 1_700_000_000_000);
 });
 
 // ---------------------------------------------------------------- 版本头与降级

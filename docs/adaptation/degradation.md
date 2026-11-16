@@ -17,7 +17,8 @@
 | `foundation.client.degrade.capabilities` | `dict,param,org,person` | 允许降级的能力白名单；**白名单外一律 fail-closed** |
 | `foundation.authz.snapshot.fail-mode` | `deny` | 授权快照策略；`stale` 为过期放行 |
 | `foundation.authz.snapshot.stale-max-age` | `10m` | 授权快照陈旧上限 |
-| `foundation.authz.snapshot.cache-ttl` | `5m` | 快照缓存 TTL（既有配置） |
+| `foundation.authz.snapshot.cache-ttl` | `5m` | **标准路径**（`foundation-starter-security`）的 `SnapshotCache` TTL |
+| `foundation.client.authz.cache-ttl` | `5m` | **轻量路径**（`foundation-starter-client`）P1 版本化缓存 TTL；`0s` 退回每次回源。刻意不与上面的 security starter 配置共用，避免两套缓存语义串线 |
 | `foundation.client.mode` | `foundation` | 接入运行模式；`local` / `self-managed` 下不装配中台客户端，详见 [接入运行模式](runtime-modes.md) |
 | `foundation.client.local.enabled` | `false` | 独立模式下是否启用配置种子实现（dict/param/org/person） |
 
@@ -42,6 +43,21 @@ HTTP 请求 → DegradeHeaderFilter（最外层）
 - WARN 审计日志格式：`AUDIT foundation.read.degrade 使用过期缓存：key=... staleMs=...`；授权快照用 `AUDIT foundation.authz.snapshot.degrade`，含 `appCode / personId / staleMs / reason`。
 - `DegradeHeaderFilter` 在请求结束时读标记并写响应头，随后清理 `ThreadLocal`，避免线程池复用串标记。**若响应体已提交（流式下载等），响应头无法再写**，此时以 WARN 日志与 SDK 侧标记为准。
 
+### 3.1 异步线程传递（P1）
+
+纯 `ThreadLocal` 在 `@Async` / 线程池 / 消息回调里会丢标记：子线程打了降级，外层过滤器读不到，响应头不写。P1 起 `DegradeContext` 提供显式传播：
+
+```java
+DegradeContext.Snapshot snapshot = DegradeContext.capture();   // 过滤器已在请求入口绑定
+executor.submit(DegradeContext.wrap(snapshot, () -> doWork())); // 或 DegradeContext.call(snapshot, supplier)
+```
+
+`wrap` / `call` 进入时 `restore(snapshot)`、退出时必定 `clear()`；子线程里的 `DegradeContext.mark()` 会回写到父子共享的 `Snapshot`，父线程 `isMarked()` 仍能读到。不调用 `capture()` 的存量代码行为完全不变，`clear()` 依旧按线程清理。
+
+### 3.2 轻量路径的授权快照缓存（P1）
+
+`foundation-starter-client` 的 `AuthorizationSnapshotCache` 与标准路径 `SnapshotCache` 同构但独立：命中新鲜快照即零回源，`fdn.authz.changed` 经 `AuthorizationSnapshotInvalidationListener` 失效，TTL 只是事件丢失兜底。**该缓存不提供过期放行**：条目过期且回源失败一律返回 `null` 并删除条目；回源版本回退或身份串号同样拒绝。这与 `Degrade.policyFor("authz")` 恒为 `FAIL_CLOSED` 一致，不由 `foundation.client.degrade.*` 白名单放宽。
+
 ## 4. 授权快照的等保边界
 
 `SnapshotCache` 原先把「缓存过期且回源失败」写死为 `FORBIDDEN`（F-07 §4 / S15 §11.3）。本批把 `FoundationAuthzProperties.Snapshot.failMode` 真正接线：
@@ -63,6 +79,9 @@ HTTP 请求 → DegradeHeaderFilter（最外层）
 | `SnapshotDegradeTest`（既有） | 默认 deny 行为未被本批改变 |
 | `RuntimeModeAssemblyTest`（第四批） | 三种模式装配互斥、独立模式不建连中台、总开关优先 |
 | `LocalFoundationDataTest`（第四批） | 本地种子实现的行为契约 |
+| `DegradeContextTest`（P1） | 父子线程传递、子线程回写父请求、异常仍清理、请求间隔离、`restore(null)` |
+| `AuthorizationSnapshotCacheTest`（P1） | 命中零回源、TTL 到期回源、陈旧拒绝、版本回退拒绝、身份串号拒绝、事件失效、`cache-ttl=0s` |
+| `SecondAppOnboardingTest`（P1） | 第二接入方零代码获得缓存与事件失效、陈旧快照绝不放行 |
 
 ## 6. 仍未完成
 

@@ -1,7 +1,10 @@
 package com.foundation.example.onboarding;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.foundation.starter.client.authz.AuthorizationSnapshot;
+import com.foundation.starter.client.authz.AuthorizationSnapshotCache;
 import com.foundation.starter.client.authz.AuthorizationSnapshotClient;
+import com.foundation.starter.client.authz.AuthorizationSnapshotInvalidationListener;
 import com.foundation.starter.client.config.FoundationClientAutoConfiguration;
 import com.foundation.starter.client.config.FoundationClientProperties;
 import com.foundation.starter.client.config.FoundationIntegrationAutoConfiguration;
@@ -18,6 +21,7 @@ import org.springframework.util.ClassUtils;
 
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -41,8 +45,6 @@ class SecondAppOnboardingTest {
                     FoundationIntegrationAutoConfiguration.class))
             .withUserConfiguration(AppConfig.class)
             .withBean(ObjectMapper.class, ObjectMapper::new)
-            .withBean(SnapshotInvalidationHook.class, () -> personId -> {
-            })
             .withPropertyValues(
                     "foundation.client.mode=foundation",
                     "foundation.app-code=tioka-ai",
@@ -58,6 +60,8 @@ class SecondAppOnboardingTest {
             assertNull(context.getStartupFailure(), "第二接入方不应需要任何手写适配代码");
             assertNotNull(context.getBean(FoundationIntegrationSelfCheck.class));
             assertNotNull(context.getBean(AuthorizationSnapshotClient.class));
+            assertTrue(context.getBean(SnapshotInvalidationHook.class) instanceof AuthorizationSnapshotCache,
+                    "失效钩子由平台自动装配到版本化缓存，应用无需手写适配");
 
             IntegrationSelfCheckReport report = context.getBean(FoundationIntegrationSelfCheck.class)
                     .run("person-001", permissions -> permissions != null);
@@ -116,6 +120,52 @@ class SecondAppOnboardingTest {
                     .run("person-001", permissions -> permissions != null);
             assertEquals(1, calls.get(), "只有显式执行自检才发起快照往返");
         });
+    }
+
+    @Test
+    void 事件驱动缓存失效_命中新鲜快照时零回源() {
+        runner.run(context -> {
+            assertNull(context.getStartupFailure());
+            AuthorizationSnapshotCache cache = context.getBean(AuthorizationSnapshotCache.class);
+            AuthorizationSnapshotInvalidationListener listener =
+                    context.getBean(AuthorizationSnapshotInvalidationListener.class);
+            AtomicInteger loads = new AtomicInteger();
+            Supplier<AuthorizationSnapshot> loader = () -> {
+                int version = loads.incrementAndGet();
+                return new AuthorizationSnapshot("tioka-ai", "person-001", version, Set.of("agent:read"));
+            };
+
+            assertNotNull(cache.get("person-001", loader));
+            assertNotNull(cache.get("person-001", loader));
+            assertEquals(1, loads.get(), "第二接入方命中新鲜快照，中台不在请求热路径上");
+
+            assertTrue(listener.onMessage(authzChanged("person-001", "tioka-ai")));
+            assertFalse(cache.isLive("person-001"), "授权变更后旧快照必须立即不可再用");
+            assertEquals(2, cache.get("person-001", loader).version());
+            assertEquals(2, loads.get(), "失效后下一次取用回源到新版本");
+
+            assertFalse(listener.onMessage(authzChanged("person-001", "another-app")),
+                    "其它应用的授权变更不得误清本应用缓存");
+        });
+    }
+
+    @Test
+    void 缓存过期且中台不可用时一律拒绝_不放行陈旧授权() {
+        runner.withPropertyValues("foundation.client.authz.cache-ttl=0s")
+                .run(context -> {
+                    AuthorizationSnapshotCache cache = context.getBean(AuthorizationSnapshotCache.class);
+                    assertNotNull(cache.get("person-001",
+                            () -> new AuthorizationSnapshot("tioka-ai", "person-001", 7, Set.of("agent:read"))));
+
+                    assertNull(cache.get("person-001", () -> null));
+                    assertEquals(0, cache.size(), "陈旧授权不得留在缓存里被误用");
+                });
+    }
+
+    private static String authzChanged(String personId, String appCode) {
+        return "{\"eventId\":\"evt_1\",\"type\":\"fdn.authz.changed\",\"personId\":\"" + personId
+                + "\",\"appCode\":\"" + appCode
+                + "\",\"snapshotVersion\":8,\"changeType\":\"AUTHZ_RECOMPUTED\"}";
     }
 
     @Configuration(proxyBeanMethods = false)

@@ -28,13 +28,15 @@
 | --- | --- | --- |
 | 开关 | `foundation.mq.relay.enabled` | `foundation.mq.webhook.enabled` |
 | 形态 | topic `fdn-events`，tag = eventType，body = payload JSON | POST envelope JSON |
-| 元数据 | tag + payload 内保留字段 `schemaVersion` | 顶层字段 + `X-Fdn-*` 头 |
+| 元数据 | tag + payload 内保留字段 `schemaVersion`、`deliveryId` | 顶层字段 + `X-Fdn-*` 头 |
 | 签名 | 无（内网） | `X-Fdn-Signature: sha256=<HMAC-SHA256(secret, raw_body)>` |
 | 适用 | Java / 有 RocketMQ 的接入方 | 非 Java、无 MQ、跨网络的接入方 |
 
-Webhook envelope 顶层字段：`schemaVersion`、`eventType`、`aggregate`、`deliveryId`、`payload`。payload 内的 `schemaVersion` 会被提升到顶层，不重复出现。
+Webhook envelope 顶层必需字段：`schemaVersion`、`eventType`、`aggregate`、`deliveryId`、`payload`；P1 起新增**可选**字段 `sentAt`（epoch millis）。payload 内的 `schemaVersion` / `deliveryId` 会被提升到顶层，不重复出现；`deliveryId` 若与 outbox 行主键不一致则拒绝投递。
 
-**幂等要求**：中继按「MQ → 各 EventSink」顺序投递，任一通道失败整条转 outbox 重试/死信，因此消费方必须按 `eventType + deliveryId` 幂等。MQ 至少一次交付本就是既有约定。
+**幂等要求**：中继按「MQ → 各 EventSink」顺序投递，任一通道失败整条转 outbox 重试/死信，因此消费方必须按 `eventType + deliveryId` 幂等。P1 起 `MybatisOutbox` 把 outbox 行主键写入 payload 保留字段 `deliveryId`（业务 payload 不能伪造），MQ 与 Webhook 两条通道共用同一投递标识；`DeliveryAwareIdempotentConsumer` 提供标准去重实现，存量按 `messageId` 去重的消费者行为不变。**不要按 MQ messageId 去重**——中继重试会产生新的 messageId。
+
+**防重放（P1）**：`sentAt` 位于被 HMAC 覆盖的原始 body 内，不可被篡改；刻意不新增时间戳头，签名串仍是 `raw_body`，v1 接入方忽略该字段即可。验签通过后按 `sentAt` 做时间窗校验（Node SDK `assertReplayWindow`），再按 `eventType + deliveryId` 幂等，即构成完整防重放。老中继没有 `sentAt` 时校验明确返回「未启用」，不抛错，保留并行发布期兼容。
 
 **配置**：启用 Webhook 时 `foundation.mq.webhook.url` 与 `secret` 必填，缺失即启动失败（安全默认值，不允许无签名投递）。生产环境 url 必须为 HTTPS。
 

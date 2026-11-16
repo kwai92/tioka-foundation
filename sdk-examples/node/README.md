@@ -4,8 +4,8 @@
 
 ```
 sdk-examples/node/
-  foundation-client.mjs   参考实现（版本头 / 验签 / 幂等 / 降级标记）
-  test/client.test.mjs    node:test 自检（18 例，含跨语言契约对齐）
+  foundation-client.mjs   参考实现（版本头 / 验签 / 防重放 / 幂等 / 降级标记）
+  test/client.test.mjs    node:test 自检（25 例，含跨语言契约对齐）
   README.md              本文件
 ```
 
@@ -22,6 +22,7 @@ node --test sdk-examples/node/test/client.test.mjs
 | 调 Foundation REST | HTTPS + OIDC | `buildApiHeaders` 带 `X-Foundation-Api-Version: 1`；`assertApiResponse` 把 400/406 与响应版本串路翻译成可读错误 |
 | 订阅 `fdn.*` 事件 | Webhook（无需 MQ） | `verifyWebhook` 校验 HMAC-SHA256 签名、envelope、`schemaVersion`、契约头与头体一致性 |
 | 处理中继重试 | 同上 | `createIdempotencyGuard` 按 `eventType + deliveryId` 去重 |
+| 防重放 | 同上 | `assertReplayWindow` 校验已签名 body 内的 `sentAt` 时间窗 |
 | 感知降级数据 | REST 响应头 | `isDegraded` 读 `X-Foundation-Degraded` |
 
 完整契约见 [契约导览](../../docs/contracts/README.md)，服务端装配裁剪见 [服务端 profile](../../docs/adaptation/server-profiles.md)。
@@ -30,7 +31,7 @@ node --test sdk-examples/node/test/client.test.mjs
 
 ```js
 import http from 'node:http';
-import { verifyWebhook, createIdempotencyGuard, ContractError } from './foundation-client.mjs';
+import { verifyWebhook, assertReplayWindow, createIdempotencyGuard, ContractError } from './foundation-client.mjs';
 
 const SECRET = process.env.FOUNDATION_WEBHOOK_SECRET; // 勿写进代码或提交到仓库
 const guard = createIdempotencyGuard();
@@ -41,7 +42,10 @@ http.createServer((req, res) => {
   req.on('data', (c) => chunks.push(c));
   req.on('end', () => {
     try {
-      const event = verifyWebhook(Buffer.concat(chunks), req.headers, SECRET);
+      const raw = Buffer.concat(chunks);
+      const event = verifyWebhook(raw, req.headers, SECRET);
+      // sentAt 在已签名的 body 内，必须用验签通过的原始字节解析，不能从不信任的头读取
+      assertReplayWindow(JSON.parse(raw.toString('utf8')));
       if (!guard.isNew(event)) {
         res.writeHead(200).end('duplicate');   // 重复投递必须先返回 2xx，否则中继会一直重试
         return;
@@ -77,7 +81,7 @@ http.createServer((req, res) => {
 
 ## 4. 刻意不做的事
 
-1. **不发明时间戳防重放头**：v1 契约只定义 `X-Fdn-Event` / `X-Fdn-Schema-Version` / `X-Fdn-Delivery-Id` 与签名头。自行加 `X-Fdn-Timestamp` 并纳入签名会让 Java 侧签出来的串与接入方算的不一致。防重放如确有必要，应作为 v2 的**新增可选头**并保留并行发布期。
+1. **不发明时间戳防重放头**：v1 契约只定义 `X-Fdn-Event` / `X-Fdn-Schema-Version` / `X-Fdn-Delivery-Id` 与签名头。自行加 `X-Fdn-Timestamp` 并纳入签名会让 Java 侧签出来的串与接入方算的不一致。P1 的防重放改由 **envelope 内可选字段 `sentAt`** 承担：它在 HMAC 覆盖的 `raw_body` 里，篡改即验签失败，且不新增头、不改签名串，v1 接入方忽略即可并行发布。
 2. **不拒绝未登记事件**：Java 侧 `EventSchemas.versionOf` 对未登记事件回落 v1 属前向兼容；本示例同样放行但置 `knownEventType=false`，由接入方决定告警还是丢弃。
 3. **不猜测 v2 结构**：`schemaVersion > 1` 直接抛 `UNSUPPORTED_SCHEMA_VERSION`，不按 v1 字段硬解析。
 4. **幂等只做进程内**：`createIdempotencyGuard` 是单实例参考实现；多实例部署必须换成共享存储（Redis `SETNX` 或带唯一索引的表），否则重试会落在不同实例上。

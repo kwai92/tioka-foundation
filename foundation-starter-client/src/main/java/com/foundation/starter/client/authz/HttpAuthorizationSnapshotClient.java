@@ -12,13 +12,17 @@ import java.util.Set;
  * 经 {@link FoundationHttpClient} 读取中台授权快照，只把原始权限项交出去。
  *
  * <p>响应结构与 Foundation 服务端 {@code AuthzSnapshotView} 对齐。这里刻意只解析
- * {@code personId} / {@code appCode} / {@code permissions} 三个字段：
+ * {@code personId} / {@code appCode} / {@code version} / {@code permissions} 四个字段：
  * 权限码的语义转换属于接入方（例如 Tioka 的 {@code PermissionCodeMapper}），
  * 底座不得替业务方解释权限含义，也不得把中台通配码直接灌给接入方。
  *
  * <p><b>严格校验（fail-closed）</b>：响应不是对象、身份标识与请求不一致、
- * {@code permissions} 缺失或不是数组、数组含非文本项，一律返回 {@code null}；
- * 由调用方按「数据源不可用」拒绝放行。返回空集合只表示中台明确授予零个权限项。
+ * {@code version} 不是非负整数、{@code permissions} 缺失或不是数组、数组含非文本项，
+ * 一律返回 {@code null}；由调用方按「数据源不可用」拒绝放行。返回空集合只表示
+ * 中台明确授予零个权限项。
+ *
+ * <p>P1：{@link #snapshotFor(String)} 保留版本号供平台版本化缓存使用；
+ * {@link #permissionsFor(String)} 是它的窄视图，既有接入方零改动。
  */
 public final class HttpAuthorizationSnapshotClient implements AuthorizationSnapshotClient {
 
@@ -41,8 +45,15 @@ public final class HttpAuthorizationSnapshotClient implements AuthorizationSnaps
         this.appCode = appCode;
     }
 
-    @Override
-    public Set<String> permissionsFor(String personId) {
+    /** 本客户端绑定的应用编码；事件失效与应用隔离都以此为边界。 */
+    public String appCode() {
+        return appCode;
+    }
+
+    /**
+     * 读取完整平台视图（含版本号）。任何结构异常都返回 {@code null}，绝不返回部分构造的快照。
+     */
+    public AuthorizationSnapshot snapshotFor(String personId) {
         if (personId == null || personId.isBlank()) {
             return null;
         }
@@ -52,6 +63,11 @@ public final class HttpAuthorizationSnapshotClient implements AuthorizationSnaps
         }
         // 防止网关串号、缓存错配或跨应用快照被当成本人的权限使用
         if (!matches(root, "personId", personId) || !matches(root, "appCode", appCode)) {
+            return null;
+        }
+        JsonNode versionNode = root.get("version");
+        if (versionNode == null || !versionNode.isIntegralNumber()
+                || !versionNode.canConvertToLong() || versionNode.longValue() < 0) {
             return null;
         }
         JsonNode permissions = root.get("permissions");
@@ -68,7 +84,13 @@ public final class HttpAuthorizationSnapshotClient implements AuthorizationSnaps
                 codes.add(code);
             }
         }
-        return Set.copyOf(codes);
+        return new AuthorizationSnapshot(appCode, personId, versionNode.longValue(), codes);
+    }
+
+    @Override
+    public Set<String> permissionsFor(String personId) {
+        AuthorizationSnapshot snapshot = snapshotFor(personId);
+        return snapshot == null ? null : snapshot.permissions();
     }
 
     private static boolean matches(JsonNode root, String field, String expected) {

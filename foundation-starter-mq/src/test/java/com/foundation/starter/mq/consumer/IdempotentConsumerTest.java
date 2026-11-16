@@ -1,5 +1,6 @@
 package com.foundation.starter.mq.consumer;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 import java.util.Set;
@@ -41,6 +42,60 @@ class IdempotentConsumerTest {
 
         IllegalStateException ex = assertThrows(IllegalStateException.class, () -> consumer.consume(message));
         assertEquals("boom", ex.getMessage());
+    }
+
+    @Test
+    void 中继重试换messageId但deliveryId不变时只处理一次() {
+        DeliveryCountingConsumer consumer = new DeliveryCountingConsumer(new SetConsumedStore());
+        String body = "{\"id\":\"dt_1\",\"schemaVersion\":1,\"deliveryId\":\"evt_1\"}";
+        MessageView first = MessageView.of("m1", "fdn-events", "fdn.dict.changed", body);
+        MessageView retry = MessageView.of("m2", "fdn-events", "fdn.dict.changed", body);
+
+        assertTrue(consumer.consume(first));
+        assertFalse(consumer.consume(retry), "重试消息必须按 eventType + deliveryId 判为重复");
+        assertEquals(1, consumer.count.get());
+    }
+
+    @Test
+    void 无deliveryId时回退messageId_存量消费方零改动() {
+        DeliveryCountingConsumer consumer = new DeliveryCountingConsumer(new SetConsumedStore());
+        MessageView message = MessageView.of("m3", "fdn-events", "fdn.dict.changed", "{\"id\":\"dt_1\"}");
+
+        assertTrue(consumer.consume(message));
+        assertFalse(consumer.consume(message));
+        assertEquals(1, consumer.count.get());
+    }
+
+    @Test
+    void 不同事件类型或不同deliveryId不互相误杀() {
+        DeliveryCountingConsumer consumer = new DeliveryCountingConsumer(new SetConsumedStore());
+        String body = "{\"deliveryId\":\"evt_1\"}";
+
+        assertTrue(consumer.consume(MessageView.of("m4", "fdn-events", "fdn.dict.changed", body)));
+        assertTrue(consumer.consume(MessageView.of("m5", "fdn-events", "fdn.authz.changed", body)));
+        assertTrue(consumer.consume(MessageView.of("m6", "fdn-events", "fdn.dict.changed",
+                "{\"deliveryId\":\"evt_2\"}")));
+        assertEquals(3, consumer.count.get());
+    }
+
+    /** 按事件契约去重的计数消费器。 */
+    private static final class DeliveryCountingConsumer extends DeliveryAwareIdempotentConsumer {
+
+        private final AtomicInteger count = new AtomicInteger();
+
+        DeliveryCountingConsumer(ConsumedStore consumedStore) {
+            super(consumedStore, new ObjectMapper());
+        }
+
+        @Override
+        protected String consumerName() {
+            return "delivery-counting";
+        }
+
+        @Override
+        protected void handle(MessageView message) {
+            count.incrementAndGet();
+        }
     }
 
     /** 计数消费器。 */

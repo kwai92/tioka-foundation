@@ -26,6 +26,8 @@ public class DegradeHeaderFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain chain) throws ServletException, IOException {
         try {
+            // P1：绑定本请求的共享快照，使异步任务里的降级标记能回写并在过滤器里被读到。
+            DegradeContext.capture();
             chain.doFilter(request, response);
         } finally {
             try {

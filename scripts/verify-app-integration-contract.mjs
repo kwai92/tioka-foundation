@@ -98,6 +98,59 @@ check(read('tioka-foundation/foundation-starter-client/src/main/resources/META-I
 check(!read('tioka-foundation/foundation-it-example/pom.xml').includes('<groupId>com.tioka</groupId>'),
   '第二接入方骨架不依赖第一个业务应用构件');
 
+// 5. P1 运行平面：中台退出请求热路径、事件失效、三项契约缺口
+const P = 'tioka-foundation/';
+const CLIENT_AUTHZ = P + 'foundation-starter-client/src/main/java/com/foundation/starter/client/authz/';
+const cacheJava = read(CLIENT_AUTHZ + 'AuthorizationSnapshotCache.java');
+check(exists(CLIENT_AUTHZ + 'AuthorizationSnapshot.java')
+  && exists(CLIENT_AUTHZ + 'CachingAuthorizationSnapshotClient.java')
+  && exists(CLIENT_AUTHZ + 'AuthorizationSnapshotInvalidationListener.java'),
+  '平台版本化缓存、装饰器与事件监听器齐备');
+check(cacheJava.includes('fetched.version() < current.snapshot().version()'),
+  '缓存拒绝版本回退，避免权限回退');
+check(cacheJava.includes('return null') && cacheJava.includes('current.expired(now)')
+  && !cacheJava.includes('allowStale'),
+  '缓存过期后必须回源，回源失败一律返回 null，无过期放行分支');
+check(cacheJava.includes('!personId.equals(fetched.personId())'),
+  '回源结果按身份与应用校验，防串号');
+check(read(CLIENT_AUTHZ + 'HttpAuthorizationSnapshotClient.java').includes('versionNode'),
+  '轻量客户端保留版本号供缓存使用');
+const clientAuto = read(P + 'foundation-starter-client/src/main/java/com/foundation/starter/client/config/FoundationClientAutoConfiguration.java');
+check(clientAuto.includes('CachingAuthorizationSnapshotClient')
+  && clientAuto.includes('SnapshotInvalidationHook')
+  && clientAuto.includes('AuthorizationSnapshotInvalidationListener'),
+  '接入模式默认自动装配缓存、失效钩子与事件入口，应用零代码');
+check(clientAuto.includes('getClient().getAuthz()'),
+  '轻量路径缓存配置收敛在 foundation.client.* 命名空间');
+
+const eventContract = JSON.parse(read(P
+  + 'foundation-starter-mq/src/main/resources/contracts/event-schemas-v1.json'));
+check(eventContract.schemaVersion === 1, '事件契约主版本未升，v1 接入方零改动');
+check(eventContract.mqChannel.reservedFields.includes('deliveryId'),
+  'MQ body 声明 deliveryId 保留字段');
+check(eventContract.webhookChannel.envelopeOptionalFields.includes('sentAt'),
+  'Webhook envelope 声明可选 sentAt 防重放字段');
+check(eventContract.webhookChannel.envelopeRequiredFields.length === 5,
+  'v1 envelope 必需字段未增删');
+check(read(P + 'foundation-starter-mq/src/main/java/com/foundation/starter/mq/outbox/MybatisOutbox.java')
+  .includes('body.put("deliveryId", row.getId())'), 'deliveryId 与 outbox 行主键同源');
+const sinkJava = read(P + 'foundation-starter-mq/src/main/java/com/foundation/starter/mq/relay/WebhookEventSink.java');
+check(sinkJava.includes('body.put("sentAt", clock.millis())'),
+  '防重放时间戳位于被 HMAC 覆盖的 body 内');
+check(!sinkJava.includes('X-Fdn-Timestamp'), '不发明时间戳头破坏 v1 签名串');
+check(exists(P + 'foundation-starter-mq/src/main/java/com/foundation/starter/mq/consumer/DeliveryAwareIdempotentConsumer.java')
+  && read(P + 'foundation-starter-mq/src/main/java/com/foundation/starter/mq/consumer/EventDeliveryKeys.java')
+    .includes('eventType + ":" + id'), '平台提供 eventType + deliveryId 幂等实现');
+const degradeJava = read(P + 'foundation-starter-core/src/main/java/com/foundation/starter/core/context/DegradeContext.java');
+for (const api of ['capture()', 'restore(Snapshot', 'wrap(Snapshot', 'call(Snapshot']) {
+  check(degradeJava.includes(api), `DegradeContext 提供异步传递 API：${api}`);
+}
+check(read(P + 'foundation-starter-web/src/main/java/com/foundation/starter/web/filter/DegradeHeaderFilter.java')
+  .includes('DegradeContext.capture()'), '过滤器绑定共享快照以接收异步回写');
+const nodeSdk = read(P + 'sdk-examples/node/foundation-client.mjs');
+check(nodeSdk.includes('assertReplayWindow'), 'Node SDK 提供时间窗防重放校验');
+check(!nodeSdk.includes('X-Fdn-Timestamp'), 'Node SDK 不自行发明时间戳头');
+
 console.log(`app-integration-contract: ${ok.length} passed, ${fail.length} failed`);
 if (fail.length > 0) {
   for (const f of fail) console.error('  FAIL ' + f);

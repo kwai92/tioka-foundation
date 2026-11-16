@@ -32,9 +32,13 @@ public class MybatisOutbox implements Outbox {
         row.setEventType(event.eventType());
         row.setAggregate(event.aggregate());
         // ADP-02：契约版本随事件体落库（新增字段，对既有订阅方兼容）。
+        // P1：deliveryId 与 outbox 行主键同源，使 MQ 与 Webhook 两条通道共用同一幂等键。
+        // 中继重试不会换 deliveryId，消费方可按 eventType + deliveryId 去重，而不是按
+        // 每次投递都可能变化的 MQ messageId 去重。保留字段强制覆盖，避免业务 payload 覆盖它。
         // 用 LinkedHashMap 保持业务字段顺序，便于排查与快照比对。
         java.util.Map<String, Object> body = new java.util.LinkedHashMap<>(event.payload());
         body.putIfAbsent("schemaVersion", event.schemaVersion());
+        body.put("deliveryId", row.getId());
         row.setPayload(toJson(body));
         outboxMapper.insertOutbox(row);
     }

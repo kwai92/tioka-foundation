@@ -76,6 +76,39 @@ public class FoundationClientProperties {
         /** 本地种子数据（{@code foundation.client.local.*}，ADP-08）。 */
         private final Local local = new Local();
 
+        /**
+         * 授权快照版本化缓存（P1，{@code foundation.client.authz.*}）。
+         * 刻意放在 client starter 自己的命名空间：{@code foundation.authz.*} 已由
+         * {@code foundation-starter-security} 的 Snapshot / Event 配置占用。
+         */
+        private final Authz authz = new Authz();
+
+        public Authz getAuthz() {
+            return authz;
+        }
+
+        /**
+         * 授权快照缓存配置（P1）。
+         *
+         * <p>命中未过期快照时不再回源，中台退出请求热路径；{@code fdn.authz.changed}
+         * 事件失效后下次取用回源到新版本。TTL 只是事件丢失的兜底，<b>不是降级许可</b>：
+         * 条目过期且回源失败一律拒绝，不存在「过期放行」开关（36 号规划 §6）。
+         * {@code cache-ttl=0s} 可退回每次回源，用于排障或对账。
+         */
+        public static class Authz {
+
+            private Duration cacheTtl = Duration.ofMinutes(5);
+
+            public Duration getCacheTtl() {
+                return cacheTtl;
+            }
+
+            public void setCacheTtl(Duration cacheTtl) {
+                this.cacheTtl = cacheTtl == null || cacheTtl.isNegative()
+                        ? Duration.ZERO : cacheTtl;
+            }
+        }
+
         public Duration getConnectTimeout() {
             return connectTimeout;
         }

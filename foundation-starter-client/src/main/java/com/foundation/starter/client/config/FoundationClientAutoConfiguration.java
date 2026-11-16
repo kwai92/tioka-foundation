@@ -1,8 +1,12 @@
 package com.foundation.starter.client.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.foundation.starter.client.authz.AuthorizationSnapshotCache;
 import com.foundation.starter.client.authz.AuthorizationSnapshotClient;
+import com.foundation.starter.client.authz.AuthorizationSnapshotInvalidationListener;
+import com.foundation.starter.client.authz.CachingAuthorizationSnapshotClient;
 import com.foundation.starter.client.authz.HttpAuthorizationSnapshotClient;
+import com.foundation.starter.client.integration.SnapshotInvalidationHook;
 import com.foundation.starter.client.cache.TtlCache;
 import com.foundation.starter.client.calendar.CalendarClient;
 import com.foundation.starter.client.calendar.HttpCalendarClient;
@@ -98,12 +102,51 @@ public class FoundationClientAutoConfiguration {
     /**
      * 授权快照客户端只在接入模式装配；本地模式不注册，避免派生应用误以为还能连中台。
      * 返回的权限项保持中台原始编码，语义映射由接入方负责。
+     *
+     * <p>P1：默认经 {@link CachingAuthorizationSnapshotClient} 包装为版本化缓存实现，
+     * 命中新鲜快照即零回源；端口类型不变，派生应用与既有适配类零改动。
+     * 接入方若自行注册 {@link AuthorizationSnapshotClient} Bean，则完全接管该能力。
      */
     @Bean
     @ConditionalOnMissingBean
     public AuthorizationSnapshotClient authorizationSnapshotClient(FoundationHttpClient http,
-                                                                    FoundationProperties foundationProperties) {
-        return new HttpAuthorizationSnapshotClient(http, foundationProperties.getAppCode());
+                                                                    FoundationProperties foundationProperties,
+                                                                    AuthorizationSnapshotCache snapshotCache) {
+        HttpAuthorizationSnapshotClient remote =
+                new HttpAuthorizationSnapshotClient(http, foundationProperties.getAppCode());
+        return new CachingAuthorizationSnapshotClient(snapshotCache, remote);
+    }
+
+    /**
+     * 平台侧版本化缓存（P1）：TTL 只作事件丢失兜底，过期且回源失败一律拒绝，不提供过期放行开关。
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public AuthorizationSnapshotCache authorizationSnapshotCache(FoundationProperties foundationProperties,
+                                                                   FoundationClientProperties properties) {
+        return new AuthorizationSnapshotCache(foundationProperties.getAppCode(),
+                properties.getClient().getAuthz().getCacheTtl());
+    }
+
+    /** 失效钩子默认指向平台缓存，使 ADR-051 六项自检里的「快照失效」在生产接入中自动成立。 */
+    @Bean
+    @ConditionalOnMissingBean
+    public SnapshotInvalidationHook snapshotInvalidationHook(AuthorizationSnapshotCache snapshotCache) {
+        return snapshotCache::invalidate;
+    }
+
+    /**
+     * {@code fdn.authz.changed} 事件入口；平台不绑定消息中间件，应用把 consumer / Webhook
+     * 的报文交给 {@link AuthorizationSnapshotInvalidationListener#onMessage(String)} 即可。
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public AuthorizationSnapshotInvalidationListener authorizationSnapshotInvalidationListener(
+            FoundationProperties foundationProperties,
+            SnapshotInvalidationHook invalidationHook,
+            ObjectMapper objectMapper) {
+        return new AuthorizationSnapshotInvalidationListener(foundationProperties.getAppCode(),
+                invalidationHook, objectMapper);
     }
 
     // ---------- §7 字典与参数 ----------

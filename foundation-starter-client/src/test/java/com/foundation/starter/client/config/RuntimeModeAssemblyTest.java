@@ -1,7 +1,12 @@
 package com.foundation.starter.client.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.foundation.starter.client.authz.AuthorizationSnapshot;
+import com.foundation.starter.client.authz.AuthorizationSnapshotCache;
 import com.foundation.starter.client.authz.AuthorizationSnapshotClient;
+import com.foundation.starter.client.authz.AuthorizationSnapshotInvalidationListener;
+import com.foundation.starter.client.authz.CachingAuthorizationSnapshotClient;
+import com.foundation.starter.client.integration.SnapshotInvalidationHook;
 import com.foundation.starter.client.dict.DictClient;
 import com.foundation.starter.client.dict.HttpDictClient;
 import com.foundation.starter.client.http.FoundationHttpClient;
@@ -15,6 +20,9 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -53,6 +61,40 @@ class RuntimeModeAssemblyTest {
                 context.getBeansOfType(AuthorizationSnapshotClient.class).size()));
         runner.withPropertyValues("foundation.client.mode=local")
                 .run(context -> assertTrue(context.getBeansOfType(AuthorizationSnapshotClient.class).isEmpty()));
+    }
+
+    @Test
+    void 运行平面缓存与事件入口只在接入模式装配() {
+        runner.run(context -> {
+            assertEquals(1, context.getBeansOfType(AuthorizationSnapshotCache.class).size());
+            assertEquals(1, context.getBeansOfType(SnapshotInvalidationHook.class).size());
+            assertEquals(1, context.getBeansOfType(AuthorizationSnapshotInvalidationListener.class).size());
+            assertTrue(context.getBean(AuthorizationSnapshotClient.class)
+                            instanceof CachingAuthorizationSnapshotClient,
+                    "接入模式默认走版本化缓存，中台不落在每次鉴权的热路径上");
+        });
+        runner.withPropertyValues("foundation.client.mode=local")
+                .run(context -> {
+                    assertTrue(context.getBeansOfType(AuthorizationSnapshotCache.class).isEmpty());
+                    assertTrue(context.getBeansOfType(SnapshotInvalidationHook.class).isEmpty());
+                    assertTrue(context.getBeansOfType(AuthorizationSnapshotInvalidationListener.class).isEmpty());
+                });
+    }
+
+    @Test
+    void 缓存TTL可配置为零以退回每次回源() {
+        runner.withPropertyValues("foundation.client.authz.cache-ttl=0s")
+                .run(context -> {
+                    AuthorizationSnapshotCache cache = context.getBean(AuthorizationSnapshotCache.class);
+                    AtomicInteger loads = new AtomicInteger();
+                    Supplier<AuthorizationSnapshot> loader = () -> {
+                        loads.incrementAndGet();
+                        return new AuthorizationSnapshot("tioka", "person-001", 1, Set.of());
+                    };
+                    cache.get("person-001", loader);
+                    cache.get("person-001", loader);
+                    assertEquals(2, loads.get());
+                });
     }
 
     @Test

@@ -85,6 +85,37 @@ class HttpAuthorizationSnapshotClientTest {
     }
 
     @Test
+    void 版本号缺失或非法时整份快照作废() {
+        String prefix = "{\"personId\":\"" + PERSON + "\",\"appCode\":\"" + APP + "\",";
+        enqueue(prefix + "\"permissions\":[\"agent:read\"]}");
+        assertNull(client().permissionsFor(PERSON));
+
+        enqueue(prefix + "\"version\":\"7\",\"permissions\":[\"agent:read\"]}");
+        assertNull(client().permissionsFor(PERSON));
+
+        enqueue(prefix + "\"version\":-1,\"permissions\":[\"agent:read\"]}");
+        assertNull(client().permissionsFor(PERSON));
+
+        enqueue(prefix + "\"version\":1.5,\"permissions\":[\"agent:read\"]}");
+        assertNull(client().permissionsFor(PERSON));
+    }
+
+    @Test
+    void 完整视图保留版本号供版本化缓存使用() {
+        enqueue(snapshot(PERSON, APP, "[\"agent:read\"]"));
+        HttpAuthorizationSnapshotClient remote =
+                new HttpAuthorizationSnapshotClient(foundationHttp(1), APP);
+
+        AuthorizationSnapshot snapshot = remote.snapshotFor(PERSON);
+
+        assertEquals(7, snapshot.version());
+        assertEquals(APP, snapshot.appCode());
+        assertEquals(PERSON, snapshot.personId());
+        assertEquals(Set.of("agent:read"), snapshot.permissions());
+        assertEquals(APP, remote.appCode());
+    }
+
+    @Test
     void 空响应与非二xx按不可用处理() {
         server.enqueue(new MockResponse().setResponseCode(200));
         assertNull(client().permissionsFor(PERSON));

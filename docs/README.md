@@ -73,7 +73,7 @@ Foundation 是底座，不是「所有项目都必须全量接入」的单体。
 
 | 工作项 | 内容 | 位置 |
 | --- | --- | --- |
-| ADP-09（C 类） | Node >= 18 零依赖接入参考实现：版本头出站与响应协商、Webhook HMAC-SHA256 原始字节验签、envelope / `schemaVersion` 校验、`eventType + deliveryId` 幂等、降级标记读取；18 个 `node:test` 用例直接比对 Java 源码与事件契约 | [`sdk-examples/node/`](../sdk-examples/node/README.md)、CI `node-sdk` job |
+| ADP-09（C 类） | Node >= 18 零依赖接入参考实现：版本头出站与响应协商、Webhook HMAC-SHA256 原始字节验签、envelope / `schemaVersion` 校验、`eventType + deliveryId` 幂等、P1 起新增 `sentAt` 时间窗防重放、降级标记读取；25 个 `node:test` 用例直接比对 Java 源码与事件契约 | [`sdk-examples/node/`](../sdk-examples/node/README.md)、CI `node-sdk` job |
 | ADP-11 | 兼容矩阵机器可读契约 + 静态一致性守门 + CI `compatibility` job（3 模式 × 2 profile = 6 组合，由 `CompatibilityMatrixProbeTest` 真正消费环境注入） | [兼容矩阵](compatibility-matrix.md)、`docs/contracts/compatibility-matrix-v1.json`、`scripts/verify-compatibility-matrix.mjs` |
 
 仍未完成的 F3 项（自管授权导入器属 F2、前端包适配层、完整 OpenAPI 请求/响应字段基线、v2 契约与并行发布期、其余 `GA*GateIT` 的 Docker 端到端部分、干净机器端到端自检、JDK 21 验证）见 Tioka 主仓库 `docs/architecture/implementation/36-Foundation后续开发规划与适配性专项.md` 第 15 节。**F1 债务清零（Tioka 侧零接入、`foundation-ui` 空壳、GF 12 条闸门用例）仍是最高前置，五批 F3 均未触碰 Tioka 主仓库业务代码。**

@@ -16,6 +16,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
+import java.time.Clock;
 import java.util.HexFormat;
 import java.util.Set;
 
@@ -38,8 +39,14 @@ public class WebhookEventSink implements EventSink {
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
     private final Set<String> allowedEventTypes;
+    private final Clock clock;
 
     public WebhookEventSink(FoundationMqProperties.Webhook properties, ObjectMapper objectMapper) {
+        this(properties, objectMapper, Clock.systemUTC());
+    }
+
+    /** 包级构造器：允许测试注入可控时钟验证防重放时间窗。 */
+    WebhookEventSink(FoundationMqProperties.Webhook properties, ObjectMapper objectMapper, Clock clock) {
         if (properties == null || properties.getUrl() == null || properties.getUrl().isBlank()) {
             throw new IllegalStateException("启用 foundation.mq.webhook 时必须配置 url");
         }
@@ -48,6 +55,7 @@ public class WebhookEventSink implements EventSink {
         }
         this.properties = properties;
         this.objectMapper = objectMapper;
+        this.clock = clock == null ? Clock.systemUTC() : clock;
         this.allowedEventTypes = properties.getAllowedEventTypes() == null
                 ? Set.of() : Set.copyOf(properties.getAllowedEventTypes());
         this.httpClient = HttpClient.newBuilder()
@@ -98,11 +106,23 @@ public class WebhookEventSink implements EventSink {
                 schemaVersion = payload.get("schemaVersion").asInt(schemaVersion);
                 ((ObjectNode) payload).remove("schemaVersion");
             }
+            // P1：MQ body 里的平台保留字段 deliveryId 不能在 envelope 内重复出现，
+            // 且必须与 outbox 行主键一致，否则说明 payload 被改写或非本中继产生。
+            if (payload.isObject() && payload.has("deliveryId")) {
+                JsonNode embedded = payload.get("deliveryId");
+                if (!embedded.isTextual() || !entry.id().equals(embedded.asText())) {
+                    throw new IllegalStateException("payload 内 deliveryId 与 outbox 行主键不一致");
+                }
+                ((ObjectNode) payload).remove("deliveryId");
+            }
             ObjectNode body = objectMapper.createObjectNode();
             body.put("schemaVersion", schemaVersion);
             body.put("eventType", entry.eventType());
             body.put("aggregate", entry.aggregate());
             body.put("deliveryId", entry.id());
+            // P1 防重放：时间戳放在被 HMAC 覆盖的 body 内（不新增头、不改签名串），
+            // 旧接入方忽略该可选字段即可，验签与 envelope 必需字段均保持不变。
+            body.put("sentAt", clock.millis());
             body.set("payload", payload);
             return new Envelope(objectMapper.writeValueAsBytes(body), schemaVersion);
         } catch (IOException ex) {

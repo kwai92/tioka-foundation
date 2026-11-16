@@ -25,7 +25,7 @@ public record IntegrationSelfCheckReport(List<Check> checks) {
         checks = List.copyOf(checks);
     }
 
-    /** 没有 FAIL 即视为接入自检通过；WARN 允许存在（如网关注入令牌、P1 事件失效待接）。 */
+    /** 没有 FAIL 即视为接入自检通过；WARN 允许存在（如网关注入令牌、探针未执行、失效钩子未注册）。 */
     public boolean allPassed() {
         return checks.stream().noneMatch(check -> check.status() == Status.FAIL);
     }

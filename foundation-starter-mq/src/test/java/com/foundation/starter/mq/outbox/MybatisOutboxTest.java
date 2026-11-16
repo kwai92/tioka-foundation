@@ -30,7 +30,21 @@ class MybatisOutboxTest {
         assertTrue(row.getId().startsWith("evt_"), "主键前缀应为 evt_");
         assertEquals("fdn.dict.changed", row.getEventType());
         assertEquals("dt_1", row.getAggregate());
-        assertEquals("{\"id\":\"dt_1\",\"schemaVersion\":1}", row.getPayload());
+        assertEquals("{\"id\":\"dt_1\",\"schemaVersion\":1,\"deliveryId\":\"" + row.getId() + "\"}",
+                row.getPayload(), "P1：deliveryId 必须与 outbox 行主键同源，供 MQ 消费方按契约幂等");
+    }
+
+    @Test
+    void append强制覆盖业务自带的保留字段deliveryId() {
+        outbox.append(DomainEvent.of("fdn-events", "fdn.dict.changed", "dt_1",
+                Map.of("id", "dt_1", "deliveryId", "forged")));
+
+        ArgumentCaptor<OutboxDO> captor = ArgumentCaptor.forClass(OutboxDO.class);
+        verify(outboxMapper).insertOutbox(captor.capture());
+        OutboxDO row = captor.getValue();
+        assertTrue(row.getPayload().contains("\"deliveryId\":\"" + row.getId() + "\""));
+        assertTrue(!row.getPayload().contains("forged"),
+                "保留字段不得由业务 payload 伪造，否则消费方会按错误的键去重");
     }
 
     @Test

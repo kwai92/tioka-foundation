@@ -6,6 +6,7 @@
     "compatible": [
       "新增事件类型",
       "payload 新增字段",
+      "envelope 新增可选字段",
       "新增可选 HTTP 头"
     ],
     "breaking": [
@@ -19,8 +20,9 @@
   "mqChannel": {
     "topic": "fdn-events",
     "tag": "eventType",
-    "body": "payload JSON（v1 起含保留字段 schemaVersion）",
-    "note": "MQ 通道保持既有 body 形态，新增字段属兼容变更；消费方须按 eventType + id 幂等。"
+    "body": "payload JSON（v1 起含平台保留字段 schemaVersion、deliveryId）",
+    "reservedFields": ["schemaVersion", "deliveryId"],
+    "note": "MQ 通道保持既有 body 形态，新增保留字段属兼容变更；deliveryId 与 outbox 行主键同源、中继重试不变。消费方须按 eventType + deliveryId 幂等，不要用每次投递都可能变化的 MQ messageId。"
   },
   "webhookChannel": {
     "method": "POST",
@@ -38,7 +40,9 @@
       "aggregate",
       "deliveryId",
       "payload"
-    ]
+    ],
+    "envelopeOptionalFields": ["sentAt"],
+    "replayProtection": "P1 起 envelope 顶层新增可选字段 sentAt（epoch millis）。它位于 HMAC 覆盖的原始 body 内，不可被篡改；不新增头、不改签名串，v1 接入方忽略即可。验签通过后按 sentAt 做时间窗校验，再按 eventType + deliveryId 幂等，即构成完整防重放。"
   },
   "events": [
     { "eventType": "fdn.account.sessions_revoked", "schemaVersion": 1, "requiredFields": [] },
@@ -62,5 +66,6 @@
     { "eventType": "fdn.sync.failed", "schemaVersion": 1, "requiredFields": [] },
     { "eventType": "fdn.sync.paused", "schemaVersion": 1, "requiredFields": [] }
   ],
+  "contractAddendum": "P1 运行平面为兼容增补：MQ body 补 deliveryId 保留字段、Webhook envelope 补可选 sentAt、SDK 补时间窗校验；主版本、事件名、必需字段与签名形态均未改变，无需并行发布期即可被 v1 接入方忽略。",
   "note": "v1 只冻结事件名、通道形态与 envelope 字段；payload 的业务字段由各能力域设计文档定义，不在本文件重复声明，避免双源漂移。"
 }

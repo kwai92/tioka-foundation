@@ -254,9 +254,46 @@ export function verifyWebhook(rawBody, headers, secret, options = {}) {
 
 /**
  * 按 eventType + deliveryId 幂等去重（契约要求；中继失败会整条重试，同一 deliveryId 可能多次到达）。
- * 契约**没有定义时间戳头**，因此本实现不自行发明防重放字段；需要防重放应作为 v2 新增可选头。
+ * 防重放的时间窗由 assertReplayWindow 基于「已签名 body 内的 sentAt」完成，本守卫只负责去重。
+ * 契约仍不定义时间戳头，签名串也仍是 raw_body，v1 接入方零改动。
  * 进程内实现仅适用单实例；多实例请换成共享存储（Redis SETNX / 唯一索引）。
  */
+/**
+ * 校验投递时间窗（P1 防重放，可选启用）。
+ *
+ * 必须在 verifyWebhook 之后调用，且传入「用已验签的原始字节解析出的 envelope」：
+ * sentAt 位于 HMAC 覆盖的 body 内，任何改写都会让签名失效，因此可以作为可信时间源。
+ * 平台刻意不新增时间戳头——那会改变跨语言签名串并破坏 v1 接入方。
+ *
+ * v1 老中继没有 sentAt 时返回 { enforced: false }，不抛错，保留并行发布期兼容；
+ * 接入方应据此告警升级中继。时间窗校验 + deliveryId 幂等共同构成完整防重放。
+ *
+ * @param envelope 已验签的原始 envelope 对象（不是 verifyWebhook 的返回值）
+ * @param options  { maxAgeMs, skewMs, now }
+ */
+export function assertReplayWindow(envelope, {
+  maxAgeMs = 5 * 60 * 1000,
+  skewMs = 30 * 1000,
+  now = () => Date.now(),
+} = {}) {
+  const sentAt = envelope?.sentAt;
+  if (sentAt === undefined) {
+    return { enforced: false, reason: 'V1_ENVELOPE_WITHOUT_SENT_AT' };
+  }
+  if (!Number.isSafeInteger(sentAt) || sentAt <= 0) {
+    fail('REPLAY_WINDOW_INVALID', 'sentAt 必须是正整数毫秒时间戳');
+  }
+  if (!Number.isFinite(maxAgeMs) || maxAgeMs <= 0 || !Number.isFinite(skewMs) || skewMs < 0) {
+    fail('REPLAY_WINDOW_INVALID', 'maxAgeMs 必须为正数、skewMs 必须非负');
+  }
+  const current = now();
+  if (sentAt > current + skewMs || current - sentAt > maxAgeMs) {
+    fail('REPLAY_WINDOW_EXPIRED',
+      `投递时间超出允许窗口：sentAt=${sentAt}, now=${current}, maxAgeMs=${maxAgeMs}`);
+  }
+  return { enforced: true };
+}
+
 export function createIdempotencyGuard({ ttlMs = 24 * 60 * 60 * 1000, now = () => Date.now() } = {}) {
   const seen = new Map();
   return {
