@@ -4,14 +4,14 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <parent>
-        <groupId>com.foundation</groupId>
-        <artifactId>foundation-build</artifactId>
-        <version>${revision}</version>
-    </parent>
-
-    <!-- PF-00a：显式写出坐标与属性。发布 pom 会移除 <parent>（聚合器 foundation-build
-         按设计不对外发布），因此对外构件必须自包含，不能依赖继承提供 groupId/version/properties。 -->
+    <!-- PF-00a + 发布 pom 回归修复：**源码形态即发布形态的坐标基础**。
+         本工程不再继承 foundation-build（BAS-23 明确该聚合器不对外发布），因此：
+         ① 自身发布 pom 天然自包含，无需 <parent>remove</parent> 裁剪；
+         ② 子模块发布 pom 保留 <parent> 指向本工程（已发布、零副作用），即可正常继承
+            groupId 与 dependencyManagement 版本，不再出现「无 groupId + 依赖无 version」的无效模型；
+         ③ 内部构建链（enforcer/failsafe/gate/distributionManagement）仍写在源码 pom，
+            Foundation 子模块经 relativePath 读取时完整生效；对外发布 pom 由 flatten 裁掉这些元素，
+            不污染下游业务系统。 -->
     <groupId>com.foundation</groupId>
     <artifactId>foundation-parent</artifactId>
     <version>${revision}</version>
@@ -101,26 +101,43 @@
             </plugins>
         </pluginManagement>
         <plugins>
-            <!-- PF-00a：发布形态与源码形态分离。
-                 源码 pom 继承 foundation-build，Foundation 内部模块由此拿到编译/静态检查/
-                 enforcer/failsafe/gate 与私有仓库发布配置；安装到仓库的 flattened pom 则剥离
-                 parent、distributionManagement、profiles 及 build 中实际执行的插件，仅保留
-                 pluginManagement（插件版本契约）。下游（Tioka 及其它业务系统）继承本父工程时：
-                 不依赖未发布的聚合器、不改写自身发布目标、不被 Foundation 的 enforcer/failsafe
-                 执行与 gate profile 污染。验收：示例工程只引父工程可编译（F-01 §3）。 -->
+            <!-- 内部构建链（源码 pom）与对外发布形态（flattened pom）分离：
+                 裁剪 distributionManagement / profiles / 实际执行的 plugins，仅保留
+                 pluginManagement 插件版本契约。**不裁剪 parent** —— 本工程自身已无父，
+                 而子模块必须保留 parent 才能继承 groupId 与 BOM 版本。
+                 下游（Tioka 及其它业务系统）继承本父工程时：不依赖未发布的聚合器、
+                 不改写自身发布目标、不被 Foundation 的 enforcer/failsafe 执行与 gate profile 污染。
+                 验收：示例工程只引父工程可编译（F-01 §3）；裸工程只引子模块可解析传递依赖。 -->
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>flatten-maven-plugin</artifactId>
+                <!-- 本工程已不继承 foundation-build，须自行声明插件版本与执行绑定。 -->
+                <version>1.6.0</version>
                 <configuration>
                     <updatePomFile>true</updatePomFile>
                     <flattenMode>resolveCiFriendliesOnly</flattenMode>
                     <pomElements>
-                        <parent>remove</parent>
                         <distributionManagement>remove</distributionManagement>
                         <profiles>remove</profiles>
                         <build>remove</build>
                     </pomElements>
                 </configuration>
+                <executions>
+                    <execution>
+                        <id>flatten</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>flatten</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>flatten.clean</id>
+                        <phase>clean</phase>
+                        <goals>
+                            <goal>clean</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
