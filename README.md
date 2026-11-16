@@ -46,6 +46,7 @@ Foundation 承担底座角色，四类接入方（核心平台 / 新建 Java 业
 ## 3. 版本与发布
 
 - **版本占位**：所有 `pom.xml` 使用 `${revision}`，由 `flatten-maven-plugin` 在 `process-resources` 期固化为具体版本后写入 `.flattened-pom.xml`；安装/发布的 pom 不含 `${revision}`。
+- **版本分轨（2026-11-16 起）**：`main` 稳定基座为 `0.1.0-SNAPSHOT`，`feat/f3-adaptability` 适配性剖面为 `0.2.0-adapt-SNAPSHOT`，两轨**不合并**；改版本须同步三处 `<revision>` 与模板 parent，下游须同步根 pom parent 与 `foundation.version`，见 [`docs/version-tracks.md`](docs/version-tracks.md)。
 - **版本号规则**（语义化，S15 §5.3）：
   - 首版 `0.1.0-SNAPSHOT`；
   - 破坏性变更只进**主版本**（`X.0.0`）；新增能力进次版本（`X.Y.0`）；修复进修订号（`X.Y.Z`）；
