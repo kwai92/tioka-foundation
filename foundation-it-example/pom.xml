@@ -60,5 +60,14 @@
             <artifactId>foundation-starter-mq</artifactId>
             <scope>test</scope>
         </dependency>
+        <!--
+          P0 接入平面：第二接入方骨架只引底座只读客户端与接入自检包，
+          不引 foundation-starter-security，也不依赖任何业务应用（尤其 Tioka）构件。
+        -->
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-starter-client</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 </project>

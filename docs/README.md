@@ -84,3 +84,22 @@ Foundation 是底座，不是「所有项目都必须全量接入」的单体。
 - 主键 ULID（`{前缀}_{ulid}`）；时间列 `TIMESTAMPTZ`；跨模块编译期只依赖对方 `-api`。
 - 配置前缀统一 `foundation.*`；Flyway 自有历史表，Foundation 库自 V1 起，不占 Tioka 号段。
 - 不引入未经 ADR 许可的新中间件。
+
+## 10. 接入平面产品化（P0，2026-11-16）
+
+按 ADR-051 第 4 条「应用接入靠 SDK 与契约、以自检为完成标准」补齐可复用接入面。
+规则与护栏归平台，派生应用只提供自己的实例与配置，不必复制任何业务应用的适配代码。
+
+| 资产 | 位置 | 说明 |
+| --- | --- | --- |
+| 应用权限码映射规则 | `docs/contracts/permission-code-mapping-v1.schema.json` | 平台冻结字段名与三条策略 const；`additionalProperties: false` |
+| 接入护栏 | `foundation-starter-client/.../config/FoundationIntegrationAutoConfiguration.java` | 只在 FOUNDATION 模式激活；只拒绝显式配置但非法的 app-code / base-url |
+| 六项自检包 | `foundation-starter-client/.../integration/` | `FoundationIntegrationSelfCheck` / `IntegrationSelfCheckReport`，按需调用、启动期零 HTTP |
+| 失效钩子 SPI | `foundation-starter-client/.../integration/SnapshotInvalidationHook.java` | 供 P1 事件失效注册，不绑定缓存实现 |
+| 第二接入方骨架 | `foundation-it-example/.../SecondAppOnboardingTest.java` | 只加 client starter 依赖与配置，不依赖任何业务应用类 |
+| 平台契约守门 | `scripts/verify-app-integration-contract.mjs` | 校验 schema、应用实例与应用侧实现三者一致 |
+
+运行 `node scripts/verify-app-integration-contract.mjs` 可自检契约是否漂移。
+标准接入路径仍是 `foundation-starter-security`（含 `SnapshotCache` 版本化缓存、
+`AuthzChangedListener` 事件失效与 `PermissionAspect`）；轻量只读路径为本节的 client starter。
+两个路径的选择与 P1 运行平面安排见 Tioka 主仓库 `docs/architecture/implementation/36-Foundation后续开发规划与适配性专项.md` 第 20 节。

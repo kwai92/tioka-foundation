@@ -1,2 +1,3 @@
 com.foundation.starter.client.config.FoundationClientAutoConfiguration
 com.foundation.starter.client.config.LocalFoundationClientAutoConfiguration
+com.foundation.starter.client.config.FoundationIntegrationAutoConfiguration
