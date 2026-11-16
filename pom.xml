@@ -11,6 +11,11 @@
     <name>Foundation Build</name>
     <description>Tioka Foundation 工程底座 —— 聚合构建（聚合器，不对外发布）</description>
 
+    <!-- 本聚合器只负责 reactor 聚合，不再作为任何模块的 <parent>：
+         foundation-parent 与 foundation-dependencies 已改为自包含坐标，
+         Foundation 子模块统一继承已发布且零副作用的 foundation-parent。
+         安装产物因此不会把下游指向一个按 BAS-23 不对外发布的构件。 -->
+
     <modules>
         <module>foundation-dependencies</module>
         <module>foundation-parent</module>
