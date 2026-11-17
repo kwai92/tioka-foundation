@@ -137,6 +137,23 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <!-- 必须显式声明 repackage：foundation-parent 的 pluginManagement 只锁版本、
+                     且本工程的父不是 spring-boot-starter-parent（无默认 execution 绑定），
+                     缺此配置时产出的是 47KB 普通 jar（无 BOOT-INF / Main-Class），
+                     deploy/Dockerfile.foundation 的 `java -jar /app/app.jar` 无法启动，
+                     deploy/compose.yml 的「空环境一条命令起全套」会在本服务失败。
+                     无任何模块依赖 foundation-server 构件，故 repackage 不影响下游解析。 -->
+                <executions>
+                    <execution>
+                        <id>repackage</id>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                        <configuration>
+                            <mainClass>com.foundation.server.FoundationApplication</mainClass>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
