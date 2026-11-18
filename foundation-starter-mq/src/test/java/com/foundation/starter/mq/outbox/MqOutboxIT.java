@@ -5,6 +5,7 @@ import com.foundation.starter.mq.consumer.ConsumedStore;
 import com.foundation.starter.mq.event.DomainEvent;
 import com.foundation.starter.mq.mq.MqTemplate;
 import com.foundation.starter.mq.relay.OutboxRelay;
+import org.apache.ibatis.annotations.Mapper;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.mybatis.spring.annotation.MapperScan;
@@ -117,9 +118,20 @@ class MqOutboxIT {
         assertFalse(consumedStore.markConsumed("it-consumer", "m-it-1"));
     }
 
-    /** 轻装配应用：MapperScan + 记录型 MqTemplate 与中继。 */
+    /**
+     * 轻装配应用：MapperScan + 记录型 MqTemplate 与中继。
+     *
+     * <p>{@code annotationClass = Mapper.class} 是必需的，**不要**改回只写 basePackages：
+     * MyBatis 的 {@code ClassPathMapperScanner} 默认把包下**所有接口**都注册成 Mapper，
+     * 而 {@code com.foundation.starter.mq} 下还有 {@code MqTemplate} / {@code Outbox} /
+     * {@code ConsumedStore} / {@code EventSink} 等非 Mapper 接口。其中 {@code mqTemplate}
+     * 会与下方 {@code @Bean MqTemplate mqTemplate()} 撞名，抛
+     * {@code ConflictingBeanDefinitionException} 使 ApplicationContext 加载失败，
+     * 连带 CI 的 verify 步骤失败、GF 闸门与兼容矩阵两个 job 被 skip。
+     * 限定注解后只扫描真正标注 {@code @Mapper} 的 {@code OutboxMapper} 与 {@code ConsumedMessageMapper}。
+     */
     @SpringBootApplication
-    @MapperScan("com.foundation.starter.mq")
+    @MapperScan(basePackages = "com.foundation.starter.mq", annotationClass = Mapper.class)
     static class ItApp {
 
         @Bean
