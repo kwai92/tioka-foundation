@@ -1,5 +1,6 @@
 package com.foundation.starter.mq.outbox;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.foundation.starter.mq.config.FoundationMqProperties;
 import com.foundation.starter.mq.consumer.ConsumedStore;
 import com.foundation.starter.mq.event.DomainEvent;
@@ -133,6 +134,19 @@ class MqOutboxIT {
     @SpringBootApplication
     @MapperScan(basePackages = "com.foundation.starter.mq", annotationClass = Mapper.class)
     static class ItApp {
+
+        /**
+         * 轻装配缺口补丁：{@code FoundationMqAutoConfiguration.MybatisMqConfiguration} 的
+         * {@code mybatisOutbox(OutboxMapper, ObjectMapper)} 需要 {@code ObjectMapper}，但
+         * {@code foundation-starter-mq} 不含 {@code spring-web}，Spring Boot 的
+         * {@code JacksonAutoConfiguration}（依赖 spring-web 的 {@code Jackson2ObjectMapperBuilder}）
+         * 在此 classpath 下不会产出 {@code ObjectMapper}。生产环境经 web 应用装配故不缺，
+         * 仅本轻装配 IT 需显式提供。
+         */
+        @Bean
+        ObjectMapper objectMapper() {
+            return new ObjectMapper();
+        }
 
         @Bean
         MqTemplate mqTemplate() {
