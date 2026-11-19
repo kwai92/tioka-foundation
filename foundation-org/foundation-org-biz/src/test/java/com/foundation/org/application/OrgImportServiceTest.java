@@ -467,6 +467,18 @@ class OrgImportServiceTest {
         }
 
         @Override
+        public Set<String> openPersonIdsInPosition(String positionId) {
+            if (positionId == null || positionId.isBlank()) {
+                return Set.of();
+            }
+            return byId.values().stream()
+                    .filter(Employment::open)
+                    .filter(employment -> positionId.equals(employment.positionId()))
+                    .map(Employment::personId)
+                    .collect(java.util.stream.Collectors.toSet());
+        }
+
+        @Override
         public long countOpenByOrgUnit(String orgUnitId) {
             return openByOrgUnit(orgUnitId).size();
         }
