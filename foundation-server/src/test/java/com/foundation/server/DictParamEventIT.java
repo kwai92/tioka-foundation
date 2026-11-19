@@ -54,7 +54,13 @@ class DictParamEventIT {
         Map<String, Object> event = events.get(0);
         assertThat(event.get("topic")).isEqualTo("fdn-events");
         assertThat(event.get("status")).isEqualTo("NEW");
-        assertThat(event.get("id")).isEqualTo(event.get("aggregate"));
+        // 聚合根 ID 与 outbox 行主键是**两个不同的值**，不可断言相等：
+        // MybatisOutbox.append 用 Ids.newId(CommonIdPrefix.OUTBOX_EVENT) 生成行主键（evt_ 前缀），
+        // aggregate 是本次变更的字典类型 id（DictService 传入 Ids.newId(DICT_TYPE)，dt_ 前缀）。
+        // 原断言 id==aggregate 永不可能成立，且与下方第三个测试 aggregate.startsWith(dt_/di_) 自相矛盾；
+        // 该 IT 因构建链长期在 foundation-starter-mq 中断而从未在 CI 执行过，错误断言才一直潜伏。
+        assertThat(event.get("aggregate")).asString().startsWith("dt_");
+        assertThat(event.get("id")).asString().startsWith("evt_");
         assertThat(event.get("payload")).asString().contains("\"changeType\"").contains("\"version\"");
     }
 

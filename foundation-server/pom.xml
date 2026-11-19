@@ -141,8 +141,7 @@
                      且本工程的父不是 spring-boot-starter-parent（无默认 execution 绑定），
                      缺此配置时产出的是 47KB 普通 jar（无 BOOT-INF / Main-Class），
                      deploy/Dockerfile.foundation 的 `java -jar /app/app.jar` 无法启动，
-                     deploy/compose.yml 的「空环境一条命令起全套」会在本服务失败。
-                     无任何模块依赖 foundation-server 构件，故 repackage 不影响下游解析。 -->
+                     deploy/compose.yml 的「空环境一条命令起全套」会在本服务失败。 -->
                 <executions>
                     <execution>
                         <id>repackage</id>
@@ -151,6 +150,23 @@
                         </goals>
                         <configuration>
                             <mainClass>com.foundation.server.FoundationApplication</mainClass>
+                            <!--
+                                classifier 是**必需**的，不要删：不配 classifier 时 repackage 会
+                                「Replacing main artifact」，把 target/foundation-server-*.jar 原地换成
+                                fat jar（classes 移入 BOOT-INF/classes/）。而 failsafe 在 verify 阶段
+                                （晚于 package）用 **project 主 artifact** 构造 test classpath，于是
+                                SpringBootTestContextBootstrapper 从测试包向上扫描时找不到
+                                @SpringBootApplication，本模块全部 IT 报
+                                「Unable to find a @SpringBootConfiguration」而失败，连带 gate job 的
+                                GfSmokeIT / GF 闸门一起挂。
+                                配 classifier 后：主 artifact 保持普通 jar（IT 可用），
+                                fat jar 另出为 foundation-server-*-exec.jar（部署用，见
+                                deploy/Dockerfile.foundation）。
+                                CI 实证：failsafe 的 classpath 首项是 foundation-server-0.2.0-SNAPSHOT.jar
+                                而非 classes 目录，surefire 阶段则用 classes 目录——这解释了为何
+                                单测全绿、只有 IT 失败。
+                            -->
+                            <classifier>exec</classifier>
                         </configuration>
                     </execution>
                 </executions>
