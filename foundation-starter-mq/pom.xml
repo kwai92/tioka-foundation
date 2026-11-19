@@ -15,7 +15,7 @@
     <name>foundation-starter-mq</name>
     <description>消息封装：领域事件、outbox 与中继、消费幂等、死信约定（F-02 BAS-24）</description>
 
-    <!-- 只依赖 foundation-starter-core（S15 §5.2 依赖约束） -->
+    <!-- 生产只依赖 foundation-starter-core（S15 §5.2 依赖约束）；下方 test scope 依赖不对外传递 -->
     <dependencies>
         <dependency>
             <groupId>com.foundation</groupId>
@@ -36,6 +36,17 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!--
+            MqOutboxIT 轻装配上下文需要平台的 TIMESTAMPTZ ↔ LocalDateTime 桥接
+            （starter-data 的 UtcLocalDateTimeTypeHandler）。生产环境由宿主应用提供
+            SqlSessionFactory（如 foundation-server 依赖 starter-data），故本模块生产不需要它；
+            此处 test scope 只为复用平台资产，避免同一语义在测试里再实现一份（判据②）。
+        -->
+        <dependency>
+            <groupId>com.foundation</groupId>
+            <artifactId>foundation-starter-data</artifactId>
             <scope>test</scope>
         </dependency>
         <!-- MqOutboxIT：PostgreSQL 容器与轻装配 -->
