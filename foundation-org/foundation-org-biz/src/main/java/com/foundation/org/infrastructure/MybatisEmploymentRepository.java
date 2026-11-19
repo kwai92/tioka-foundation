@@ -67,6 +67,19 @@ public class MybatisEmploymentRepository implements EmploymentRepository {
     }
 
     @Override
+    public Set<String> openPersonIdsInPosition(String positionId) {
+        // position_id 可空：入参为空时直接返回空集合，避免 eq(null) 退化成捞出全部无岗位任职
+        if (positionId == null || positionId.isBlank()) {
+            return Set.of();
+        }
+        Set<String> personIds = new LinkedHashSet<>();
+        mapper.selectList(openWrapper().select(EmploymentDO::getPersonId)
+                        .eq(EmploymentDO::getPositionId, positionId))
+                .forEach(row -> personIds.add(row.getPersonId()));
+        return personIds;
+    }
+
+    @Override
     public long countOpenByOrgUnit(String orgUnitId) {
         return mapper.selectCount(openWrapper().eq(EmploymentDO::getOrgUnitId, orgUnitId));
     }
