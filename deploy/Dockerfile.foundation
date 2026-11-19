@@ -10,7 +10,9 @@ ADD https://ghproxy.net/https://github.com/open-telemetry/opentelemetry-java-ins
 # 健康检查用 curl（compose healthcheck 调 /actuator/health/liveness）
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
-COPY foundation-server/target/foundation-server-*.jar /app/app.jar
+# 只 COPY 可执行 fat jar（repackage 带 classifier=exec）：主 artifact 是普通 jar（classes 在 BOOT-INF 外），
+# `java -jar` 起不来；不带 -exec 后缀的通配会同时匹配两个 jar 而使 COPY 产生多源、构建失败。
+COPY foundation-server/target/foundation-server-*-exec.jar /app/app.jar
 
 ENV JAVA_TOOL_OPTIONS="-javaagent:/app/opentelemetry-javaagent.jar -Duser.timezone=UTC"
 ENV OTEL_SERVICE_NAME=foundation
