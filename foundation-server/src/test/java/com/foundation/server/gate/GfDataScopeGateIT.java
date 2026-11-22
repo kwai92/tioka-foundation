@@ -127,13 +127,60 @@ class GfDataScopeGateIT {
     @BeforeEach
     void cleanUp() {
         // 逆外键依赖顺序清理：引用者先于被引用者。
-        // fdn_role_mutex 引用 fdn_role(code)，必须排在 fdn_role 之前。
         // org 域清单与 GfOrgImportGateIT 一致（fdn_external_identity 属 account 域但 FK 引用 fdn_person）。
+        //
+        // **只 TRUNCATE 无迁移种子的表**：fdn_role / fdn_role_mutex / fdn_role_permission 在
+        // V4__authz_center.sql 里种入了三员角色（system_admin / security_admin / audit_admin）、
+        // 三员互斥对与内置角色的 fdn:* 权限码。TRUNCATE 会永久清掉这些种子——而 gate job 内所有
+        // 闸门共享同一个 PostgreSQL 容器（FoundationContainers.PG 是 static 单例），清掉后
+        // 同批次的 GfPermissionGateIT 等依赖种子的闸门必然失败。故对这三张表只删除本测试造的
+        // gate.role.* 行（先删引用它们的子表行，再删角色本身）。
         jdbc.execute("TRUNCATE fdn_person_dimension, fdn_role_dimension_value, fdn_role_data_scope, "
-                + "fdn_role_grant, fdn_role_permission, fdn_role_mutex, fdn_role, "
-                + "fdn_dimension_value, fdn_data_dimension, fdn_authz_snapshot, "
+                + "fdn_role_grant, fdn_dimension_value, fdn_data_dimension, fdn_authz_snapshot, "
                 + "fdn_employment, fdn_report_line, fdn_external_identity, fdn_position, "
                 + "fdn_org_change_log, fdn_job_grade, fdn_org_unit, fdn_person");
+        jdbc.update("DELETE FROM fdn_role_permission WHERE role_code LIKE 'gate.role.%'");
+        jdbc.update("DELETE FROM fdn_role_mutex WHERE role_code LIKE 'gate.role.%' "
+                + "OR mutex_role_code LIKE 'gate.role.%'");
+        jdbc.update("DELETE FROM fdn_role WHERE code LIKE 'gate.role.%'");
+    }
+
+    /**
+     * 清理不得破坏迁移种子（V4__authz_center.sql 种入的三员角色、互斥对与内置权限码）。
+     *
+     * <p>{@code cleanUp()} 是 {@code @BeforeEach}，已在本用例前执行过，故此处直接断言种子仍在。
+     * 这条断言把「gate job 内闸门共享同一 PG 容器（{@code FoundationContainers.PG} 是 static 单例，
+     * surefire 默认 forkCount=1 / reuseForks=true → 同一 JVM、Flyway 只跑一次、种子只种一次）」这一
+     * 隐含约束变成可自动判定的信号：若有人把清理改回 TRUNCATE 那三张有种子的表，本用例会红，
+     * 而不是等到同批次的其它闸门（如依赖互斥对种子的权限闸门）静默失败后才发现。
+     */
+    @Test
+    void cleanUpPreservesMigrationSeedData() {
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM fdn_role WHERE code IN ('system_admin','security_admin','audit_admin')",
+                Integer.class))
+                .as("三员角色种子必须在清理后仍在")
+                .isEqualTo(3);
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM fdn_role_mutex", Integer.class))
+                .as("三员互斥对种子（3 对）必须在清理后仍在")
+                .isEqualTo(3);
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM fdn_app WHERE code = 'foundation'", Integer.class))
+                .as("平台应用种子必须在清理后仍在")
+                .isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                "SELECT count(DISTINCT role_code) FROM fdn_role_permission WHERE role_code IN "
+                        + "('system_admin','security_admin','audit_admin','org_admin','app_admin')",
+                Integer.class))
+                .as("5 个内置角色的 fdn:* 权限码种子必须在清理后仍在")
+                .isEqualTo(5);
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM fdn_role_permission "
+                        + "WHERE role_code = 'system_admin' AND code = 'fdn:manifest:import'",
+                Integer.class))
+                .as("system_admin 的清单导入权限码是权限闸门前置，必须仍在")
+                .isEqualTo(1);
     }
 
     @Test
