@@ -2,8 +2,10 @@ package com.foundation.server.assembly;
 
 import com.foundation.authz.domain.SubjectMembership;
 import com.foundation.org.domain.Employment;
+import com.foundation.org.domain.Position;
 import com.foundation.org.infrastructure.EmploymentRepository;
 import com.foundation.org.infrastructure.OrgUnitRepository;
+import com.foundation.org.infrastructure.PositionRepository;
 
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -40,22 +42,31 @@ import java.util.Set;
  *       与接口 javadoc「组织单元的子树（含自身）」及被替换的占位实现（{@code Set.of(orgUnitId)}）一致；
  *       {@code DataScopeResolver.expandDescendants} 与 {@code EffectiveRoleResolver} 的
  *       {@code includeDescendants} 分支都依赖「含自身」这一口径。</li>
+ *   <li>{@code orgUnitsOfPost} 返回岗位归属的**单个**组织单元（{@code fdn_position.org_unit_id}），
+ *       该列为空时返回空集——供分级管理员越权拦截（{@code OrgAdminScopeGuard}）解析 {@code POST} 型
+ *       授权的目标组织单元；空集由调用方按 fail-closed 处理，不在此处放宽。</li>
  * </ul>
  */
 public class OrgSubjectMembership implements SubjectMembership {
 
     private final EmploymentRepository employments;
     private final OrgUnitRepository orgUnits;
+    private final PositionRepository positions;
 
-    public OrgSubjectMembership(EmploymentRepository employments, OrgUnitRepository orgUnits) {
+    public OrgSubjectMembership(EmploymentRepository employments, OrgUnitRepository orgUnits,
+                                PositionRepository positions) {
         if (employments == null) {
             throw new IllegalArgumentException("EmploymentRepository is required");
         }
         if (orgUnits == null) {
             throw new IllegalArgumentException("OrgUnitRepository is required");
         }
+        if (positions == null) {
+            throw new IllegalArgumentException("PositionRepository is required");
+        }
         this.employments = employments;
         this.orgUnits = orgUnits;
+        this.positions = positions;
     }
 
     @Override
@@ -93,6 +104,18 @@ public class OrgSubjectMembership implements SubjectMembership {
             return Set.of();
         }
         return orgUnits.descendantIds(orgUnitId);
+    }
+
+    @Override
+    public Set<String> orgUnitsOfPost(String postId) {
+        if (postId == null || postId.isBlank()) {
+            return Set.of();
+        }
+        return positions.findById(postId)
+                .map(Position::orgUnitId)
+                .filter(orgUnitId -> orgUnitId != null && !orgUnitId.isBlank())
+                .map(Set::of)
+                .orElseGet(Set::of);
     }
 
     @Override

@@ -3,6 +3,7 @@ package com.foundation.authz.application;
 import com.foundation.authz.api.HighRiskReviewPageView;
 import com.foundation.authz.api.HighRiskReviewView;
 import com.foundation.authz.api.RoleGrantCmd;
+import com.foundation.authz.config.AuthzProperties;
 import com.foundation.authz.config.SeparationProperties;
 import com.foundation.authz.domain.GrantSource;
 import com.foundation.authz.domain.GrantSubjectType;
@@ -50,6 +51,14 @@ class SeparationHighRiskReviewTest {
     private final RoleMutexGuard mutexGuard = new RoleMutexGuard(mutexes, checker, separation, auditWriter);
     private final HighRiskGrantReviewService reviewService = new HighRiskGrantReviewService(
             reviews, grants, permissionCodes, separation, auditWriter);
+    /**
+     * 分级管理员拦截（BAS-27）：本测试的范围仓储为空，即操作人「未配范围」→ guard 直接放行，
+     * 故下列断言只覆盖互斥与高风险复核，**不覆盖** guard 自身行为
+     * （后者由 {@code OrgAdminScopeGuardTest} 覆盖）。此处存在只为满足构造签名。
+     */
+    private final OrgAdminScopeGuard scopeGuard = new OrgAdminScopeGuard(
+            new OrgAdminScopeService(new TestDoubles.InMemoryOrgAdminScopeRepository(), membership),
+            new AuthzProperties(), membership, auditWriter);
 
     private RoleGrantService grantsApi;
 
@@ -58,7 +67,7 @@ class SeparationHighRiskReviewTest {
         apps.register("app_a", "app_a");
         EffectiveRoleResolver resolver = new EffectiveRoleResolver(grants, mutexes, roles, membership,
                 new AppIdResolver(apps), checker);
-        grantsApi = new RoleGrantService(grants, roles, resolver, mutexGuard, reviewService);
+        grantsApi = new RoleGrantService(grants, roles, resolver, mutexGuard, reviewService, scopeGuard);
     }
 
     @Test

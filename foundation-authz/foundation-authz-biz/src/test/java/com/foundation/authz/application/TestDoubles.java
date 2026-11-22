@@ -312,6 +312,8 @@ final class TestDoubles {
         final Map<String, Set<String>> orgUnits = new LinkedHashMap<>();
         final Map<String, Set<String>> posts = new LinkedHashMap<>();
         final Map<String, Set<String>> descendants = new LinkedHashMap<>();
+        /** 岗位 → 所属组织单元（F-05 BAS-27 越权判定解析 {@code POST} 型授权用）。 */
+        final Map<String, Set<String>> postOrgUnits = new LinkedHashMap<>();
 
         @Override
         public Set<String> orgUnitsOf(String personId) {
@@ -326,6 +328,11 @@ final class TestDoubles {
         @Override
         public Set<String> descendantsOf(String orgUnitId) {
             return descendants.getOrDefault(orgUnitId, Set.of(orgUnitId));
+        }
+
+        @Override
+        public Set<String> orgUnitsOfPost(String postId) {
+            return postOrgUnits.getOrDefault(postId, Set.of());
         }
     }
 

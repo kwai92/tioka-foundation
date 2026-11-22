@@ -5,6 +5,7 @@ import com.foundation.authz.domain.SubjectMembership;
 import com.foundation.org.config.OrgAutoConfiguration;
 import com.foundation.org.infrastructure.EmploymentRepository;
 import com.foundation.org.infrastructure.OrgUnitRepository;
+import com.foundation.org.infrastructure.PositionRepository;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -43,10 +44,11 @@ public class FoundationServerAssemblyConfiguration {
      * <p>再加 {@code @ConditionalOnMissingBean} 是为了让接入方仍可继续覆盖本实现。
      */
     @Bean
-    @ConditionalOnBean({EmploymentRepository.class, OrgUnitRepository.class})
+    @ConditionalOnBean({EmploymentRepository.class, OrgUnitRepository.class, PositionRepository.class})
     @ConditionalOnMissingBean(SubjectMembership.class)
     public SubjectMembership orgSubjectMembership(EmploymentRepository employments,
-                                                 OrgUnitRepository orgUnits) {
-        return new OrgSubjectMembership(employments, orgUnits);
+                                                 OrgUnitRepository orgUnits,
+                                                 PositionRepository positions) {
+        return new OrgSubjectMembership(employments, orgUnits, positions);
     }
 }

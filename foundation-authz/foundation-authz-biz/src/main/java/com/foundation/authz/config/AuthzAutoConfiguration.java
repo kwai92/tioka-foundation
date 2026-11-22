@@ -46,6 +46,7 @@ import com.foundation.authz.application.HighRiskGrantReviewService;
 import com.foundation.authz.application.ManifestDiffCalculator;
 import com.foundation.authz.application.ManifestImporter;
 import com.foundation.authz.application.MenuService;
+import com.foundation.authz.application.OrgAdminScopeGuard;
 import com.foundation.authz.application.OrgAdminScopeService;
 import com.foundation.authz.application.PermissionCodeCatalogService;
 import com.foundation.authz.application.PermissionSubjectQueryService;
@@ -277,8 +278,9 @@ public class AuthzAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public GrantApi grantApi(RoleGrantRepository grants, RoleRepository roles, EffectiveRoleResolver resolver,
-                             RoleMutexGuard mutexGuard, HighRiskGrantReviewService reviews) {
-        return new RoleGrantService(grants, roles, resolver, mutexGuard, reviews);
+                             RoleMutexGuard mutexGuard, HighRiskGrantReviewService reviews,
+                             OrgAdminScopeGuard scopeGuard) {
+        return new RoleGrantService(grants, roles, resolver, mutexGuard, reviews, scopeGuard);
     }
 
     @Bean
@@ -458,10 +460,21 @@ public class AuthzAutoConfiguration {
         return service;
     }
 
+    /**
+     * 组织分级管理员范围服务：同一实例同时暴露 {@link OrgAdminScopeApi} 与
+     * {@link OrgAdminScopeService}（后者的 {@code assertGrantable} 是越权判定入口，被
+     * {@link OrgAdminScopeGuard} 消费）。
+     */
+    @Bean
+    @ConditionalOnMissingBean(OrgAdminScopeService.class)
+    public OrgAdminScopeService orgAdminScopeService(OrgAdminScopeRepository scopes, SubjectMembership membership) {
+        return new OrgAdminScopeService(scopes, membership);
+    }
+
     @Bean
     @ConditionalOnMissingBean
-    public OrgAdminScopeApi orgAdminScopeApi(OrgAdminScopeRepository scopes, SubjectMembership membership) {
-        return new OrgAdminScopeService(scopes, membership);
+    public OrgAdminScopeApi orgAdminScopeApi(OrgAdminScopeService service) {
+        return service;
     }
 
     @Bean
@@ -580,6 +593,14 @@ public class AuthzAutoConfiguration {
     public RoleMutexGuard roleMutexGuard(RoleMutexRepository mutexes, RoleMutexChecker checker,
                                          SeparationProperties properties, AuthzAuditWriter audit) {
         return new RoleMutexGuard(mutexes, checker, properties, audit);
+    }
+
+    /** 分级管理员越权拦截（BAS-27）：判定委托 {@link OrgAdminScopeService#assertGrantable}。 */
+    @Bean
+    @ConditionalOnMissingBean
+    public OrgAdminScopeGuard orgAdminScopeGuard(OrgAdminScopeService scopeService, AuthzProperties properties,
+                                                 SubjectMembership membership, AuthzAuditWriter audit) {
+        return new OrgAdminScopeGuard(scopeService, properties, membership, audit);
     }
 
     @Bean
