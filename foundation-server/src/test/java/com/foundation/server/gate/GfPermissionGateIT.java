@@ -112,7 +112,15 @@ class GfPermissionGateIT {
 
     /** 本闸门自建数据的统一前缀，清理时据此精确 DELETE（不碰迁移种子）。 */
     private static final String ROLE_PREFIX = "gate.role.";
-    private static final String PERM_PREFIX = "gate.perm.";
+    /**
+     * 权限码前缀，**必须用冒号而非点号**：{@code PermissionCatalog.PERMISSION_CODE} 是
+     * {@code ^[a-z][a-z0-9_-]*(:[a-z0-9_-]+)+$}，即「资源:动作」形态且**不含点**。
+     * 初版写成 {@code "gate.perm."} 会让 {@code ManifestParser} 在解析阶段就抛
+     * {@code BAD_REQUEST 非法权限码}，验收① 一条断言都跑不到（CI run 19 实证）。
+     * 该前缀同时用于清理的 {@code LIKE 'gateperm:%'}：字面部分不含 {@code _} 与 {@code %}，
+     * 故不会被 LIKE 通配符误匹配到种子的 {@code fdn:*} 权限码。
+     */
+    private static final String PERM_PREFIX = "gateperm:";
     private static final String MENU_PREFIX = "gate.menu.";
     private static final String APP_CODE = "gate.perm.app";
 
@@ -682,12 +690,12 @@ class GfPermissionGateIT {
                       "component": "gate/example",
                       "sort": 1,
                       "visible": true,
-                      "permissionCode": "%sexample.read"
+                      "permissionCode": "%sexample"
                     }
                   ],
                   "permissions": [
                     {
-                      "code": "%sexample.read",
+                      "code": "%sexample",
                       "name": "%s",
                       "riskLevel": "LOW"
                     }
