@@ -1,9 +1,12 @@
 package com.foundation.server.assembly;
 
 import com.foundation.authz.domain.SubjectMembership;
+import com.foundation.org.api.dto.OrgStatus;
 import com.foundation.org.domain.Employment;
+import com.foundation.org.domain.Position;
 import com.foundation.org.infrastructure.EmploymentRepository;
 import com.foundation.org.infrastructure.OrgUnitRepository;
+import com.foundation.org.infrastructure.PositionRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -49,16 +52,20 @@ class OrgSubjectMembershipTest {
 
     private final EmploymentRepository employments = mock(EmploymentRepository.class);
     private final OrgUnitRepository orgUnits = mock(OrgUnitRepository.class);
-    private final OrgSubjectMembership membership = new OrgSubjectMembership(employments, orgUnits);
+    private final PositionRepository positions = mock(PositionRepository.class);
+    private final OrgSubjectMembership membership = new OrgSubjectMembership(employments, orgUnits, positions);
 
     @Test
     void 构造时缺少任一仓储立即失败() {
-        assertThatThrownBy(() -> new OrgSubjectMembership(null, orgUnits))
+        assertThatThrownBy(() -> new OrgSubjectMembership(null, orgUnits, positions))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("EmploymentRepository");
-        assertThatThrownBy(() -> new OrgSubjectMembership(employments, null))
+        assertThatThrownBy(() -> new OrgSubjectMembership(employments, null, positions))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("OrgUnitRepository");
+        assertThatThrownBy(() -> new OrgSubjectMembership(employments, orgUnits, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("PositionRepository");
     }
 
     @Test
@@ -136,6 +143,40 @@ class OrgSubjectMembershipTest {
     }
 
     @Test
+    void 岗位归属取其所属组织单元单值() {
+        // 供分级管理员越权拦截（OrgAdminScopeGuard）解析 POST 型授权的目标组织单元
+        when(positions.findById(POSITION)).thenReturn(java.util.Optional.of(position(ORG_ROOT)));
+
+        assertThat(membership.orgUnitsOfPost(POSITION)).containsExactly(ORG_ROOT);
+    }
+
+    @Test
+    void 岗位未归属任何组织单元时为空集() {
+        // fdn_position.org_unit_id 可空。返回空集（而非 null 或含空串的集合）是 fail-closed 的前提：
+        // 调用方据此判「解析不出组织单元」并拒绝，若这里塞进空串会让 canGrant 拿脏值去比对
+        when(positions.findById(POSITION)).thenReturn(java.util.Optional.of(position("  ")));
+        assertThat(membership.orgUnitsOfPost(POSITION)).isEmpty();
+
+        when(positions.findById(POSITION)).thenReturn(java.util.Optional.of(position(null)));
+        assertThat(membership.orgUnitsOfPost(POSITION)).isEmpty();
+    }
+
+    @Test
+    void 岗位不存在时归属为空集() {
+        when(positions.findById(POSITION)).thenReturn(java.util.Optional.empty());
+
+        assertThat(membership.orgUnitsOfPost(POSITION)).isEmpty();
+    }
+
+    @Test
+    void 岗位ID为空时不查库直接返回空集() {
+        assertThat(membership.orgUnitsOfPost(null)).isEmpty();
+        assertThat(membership.orgUnitsOfPost("  ")).isEmpty();
+
+        org.mockito.Mockito.verifyNoInteractions(positions);
+    }
+
+    @Test
     void 受影响人员按组织单元与岗位反查() {
         when(employments.openPersonIdsInOrgUnits(anyCollection())).thenReturn(Set.of("per_a", "per_b"));
         when(employments.openPersonIdsInPosition(POSITION)).thenReturn(Set.of("per_c"));
@@ -203,6 +244,21 @@ class OrgSubjectMembershipTest {
     }
 
     @Test
+    void 缺岗位仓储时也不装配() {
+        // orgUnitsOfPost 需要 PositionRepository。生产里三个仓储同属 OrgAutoConfiguration、
+        // 注册条件一致（同时出现或同时缺席），故本场景不会在生产发生；但把 PositionRepository
+        // 留在 @ConditionalOnBean 里是必要的——否则一旦仓储不齐，构造器的 null 校验会让上下文
+        // **启动失败**而不是静默退回 Noop 占位实现。本用例钉住这个「宁可跳过也不炸」的选择。
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(FoundationServerAssemblyConfiguration.class))
+                .withUserConfiguration(NoPositionRepoConfig.class)
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).doesNotHaveBean(SubjectMembership.class);
+                });
+    }
+
+    @Test
     void 接入方自行注册时不覆盖() {
         // @ConditionalOnMissingBean 的意义：接入方（如 Tioka）若自带 SubjectMembership，平台不得顶掉
         new ApplicationContextRunner()
@@ -235,7 +291,7 @@ class OrgSubjectMembershipTest {
     }
 
     /**
-     * 提供装配所需的两个仓储（真库实现由 {@code OrgAutoConfiguration} 注册，此处用替身）。
+     * 提供装配所需的三个仓储（真库实现由 {@code OrgAutoConfiguration} 注册，此处用替身）。
      *
      * <p>装配条件**必须**直接测 {@link FoundationServerAssemblyConfiguration} 真实类，
      * 不能在本测试里另写一份同注解的 Configuration——复制品即使与真实类条件不一致也照样通过，
@@ -253,15 +309,35 @@ class OrgSubjectMembershipTest {
         OrgUnitRepository orgUnitRepository() {
             return mock(OrgUnitRepository.class);
         }
+
+        @Bean
+        PositionRepository positionRepository() {
+            return mock(PositionRepository.class);
+        }
     }
 
-    /** 只提供任职仓储，用于验证「两个仓储缺一不可」。 */
+    /** 只提供任职仓储，用于验证「三个仓储缺一不可」。 */
     @Configuration(proxyBeanMethods = false)
     static class EmploymentRepoOnlyConfig {
 
         @Bean
         EmploymentRepository employmentRepository() {
             return mock(EmploymentRepository.class);
+        }
+    }
+
+    /** 提供任职 + 组织单元但缺岗位仓储，用于验证岗位仓储同样是装配的必要条件。 */
+    @Configuration(proxyBeanMethods = false)
+    static class NoPositionRepoConfig {
+
+        @Bean
+        EmploymentRepository employmentRepository() {
+            return mock(EmploymentRepository.class);
+        }
+
+        @Bean
+        OrgUnitRepository orgUnitRepository() {
+            return mock(OrgUnitRepository.class);
         }
     }
 
@@ -295,5 +371,10 @@ class OrgSubjectMembershipTest {
     private static Employment employment(String orgUnitId, String positionId, boolean primary) {
         return new Employment("emp_" + orgUnitId + "_" + positionId + "_" + primary,
                 PERSON, orgUnitId, positionId, primary, LocalDate.of(2026, 1, 1), null);
+    }
+
+    private static Position position(String orgUnitId) {
+        return new Position(POSITION, "code_" + POSITION, "岗位", orgUnitId,
+                OrgStatus.ACTIVE, 0, "manual", null);
     }
 }

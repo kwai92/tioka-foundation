@@ -20,6 +20,17 @@ public interface SubjectMembership {
     Set<String> descendantsOf(String orgUnitId);
 
     /**
+     * 岗位所属的组织单元 ID 集合（F-05 BAS-27 §分级授权的越权判定用）。
+     *
+     * <p>返回集合而非单值：岗位模型上归属一个组织单元（{@code fdn_position.org_unit_id}），
+     * 但该列为空时岗位不归属任何单元，此时应返回空集以便调用方按「解析不出组织单元」处理。
+     * 占位实现返回空集合。
+     */
+    default Set<String> orgUnitsOfPost(String postId) {
+        return Set.of();
+    }
+
+    /**
      * 指定组织单元下的任职人员（供受影响人员判定，F-06 BAS-07 §快照计算）。
      *
      * <p>BAS-02 之前的占位实现返回空集合。
