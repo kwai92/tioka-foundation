@@ -22,6 +22,8 @@ jobs:
           test -f foundation-starter-mq/src/main/resources/contracts/event-schemas-v1.json
           test -f docs/contracts/permission-manifest-v1.schema.json
           test -f foundation-server/src/test/resources/contracts/api-inventory-v1.txt
+          # ADP-01 补强：端点响应形状冻结基线（ResponseShapeContractTest 消费，消除 DTO 字段级变更漏检）
+          test -f foundation-server/src/test/resources/contracts/api-response-shapes-v1.txt
           # ADP-05：四种装配 profile 的能力域冻结基线（GaModularityGateTest 消费）
           test -f foundation-server/src/test/resources/contracts/server-profile-domains-v1.txt
           # ADP-11：兼容矩阵机器可读契约（verify-compatibility-matrix.mjs 消费）
