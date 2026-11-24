@@ -136,5 +136,71 @@ executor.submit(DegradeContext.wrap(snapshot, () -> doWork())); // 或 DegradeCo
 - **自管授权导入器**（ADP-08 余下部分）：三模式与配置种子本地实现已于第四批落地（[接入运行模式](runtime-modes.md)），`SELF_MANAGED` 目前只有模式与装配位置；`SelfManagedImporter` 属 F2 范围，未实现。
 - Tioka 侧 `tioka.foundation.mode` 与 starter 侧 `foundation.client.mode` 的一致性联动（F1 接线时补启动期校验）。
 - 若干 `Http*Client`（日历 `workday` / `addWorkdays` / `diffWorkdays`、编号 `current`）在服务端返回空响应时仍返回 `null`；本批未改动，因为它们属于**业务空结果**而非「服务不可用」，需要在契约层明确定义后才能统一改成 `Optional` 或异常。
-- 降级事件写入审计中心（目前仅结构化 WARN 日志）、告警通道接入、以及 `GaDegradeGateIT`（Foundation 停机 10 分钟的端到端验证）。
+- 降级事件写入审计中心（目前仅结构化 WARN 日志）、指标化（Micrometer counter）、告警通道 SDK 接入、以及 `GaDegradeGateIT`（Foundation 停机 10 分钟的端到端验证）。**注意**：用既有 WARN 日志即可落地的采集与告警规则见 §7，本条剩余的是「指标化 + 写审计中心」这部分代码级增强。
 - 缓存降级目前只覆盖进程内 `TtlCache`；引入 `foundation-starter-cache` 的 Redis 实现后需提供同构的过期兜底语义（ADP-06）。
+
+## 7. 授权快照降级的采集与告警（部署要求）
+
+§3 的 WARN 审计日志是**代码已经发出的**结构化输出；本节把它们落成运维侧可执行的采集与告警规则。
+这不改任何代码、不触碰待决策 D4——D4 管辖的是「标准路径是否允许 `stale` 放行」，而本节要求的是
+「无论走哪条路径、无论 D4 如何，**授权被拒绝或被降级放行都必须可观测、可告警**」。
+
+### 7.1 两个日志前缀的语义与触发条件
+
+| 前缀 | 级别 | 触发条件 | 运维含义 |
+| --- | --- | --- | --- |
+| `AUDIT foundation.authz.snapshot.deny` | WARN | 授权快照**被拒绝放行**：回源异常 / 回源 null / 身份串号 / 版本回退 / `stale` 超陈旧上限 | 有人的授权判定失败了。**偶发**通常等于中台抖动；**突增**是告警项 |
+| `AUDIT foundation.authz.snapshot.degrade` | WARN | 过期快照在 `stale-max-age` 内**被降级放行**（打了 `DegradeContext` 标记） | 中台不可用期间放行了陈旧授权。**默认配置下两条路径都不可达**，一旦出现即说明有人启用了 `stale` |
+
+> **`degrade` 前缀出现 = 配置已偏离默认**。轻量路径（starter-client）恒 `FAIL_CLOSED`、
+> 标准路径（starter-security）默认 `deny`，二者在默认配置下都**不会**发出 `degrade`。
+> 故该前缀一旦出现，意味着部署侧显式打开了 `foundation.authz.snapshot.fail-mode=stale`
+> ——而 §4 与待决策 D4 明确要求「**生产环境在 D4 拍板前不应启用 `stale`**」。
+> 这条日志前缀本身就是该技术约束的**运行时兜底探针**：任何一次 `degrade` 都应触发工单核查配置来源。
+
+### 7.2 两条路径的可观测性差异（务必据实配置，勿假设对称）
+
+**这是最容易配错的地方**：两条路径在**默认 deny** 下的可观测载体不同。
+
+- **轻量路径**（`foundation-starter-client`，Tioka 与 `foundation-it-example` 实际走的活跃路径）：
+  默认 deny 时**一定发** `AUDIT ...deny` 日志（`AuthorizationSnapshotCache` 四种拒绝分支 +
+  `CachingAuthorizationSnapshotClient` 的读取异常兜底），随后返回 `null` 交上层判定器拒绝。
+  → **仅靠日志前缀即可完整采集轻量路径的全部授权拒绝。**
+- **标准路径**（`foundation-starter-security` 的 `SnapshotCache`）：默认 `deny` 时
+  **不发 `AUDIT ...deny` 日志**，而是抛 `BizException(ErrorCode.FORBIDDEN)`（→ HTTP 403），
+  message 以「授权快照不可用：」开头。只有 `fail-mode=stale` **且超出** `stale-max-age` 时，
+  才在抛异常前补一条 `AUDIT ...deny`。
+  → **标准路径的默认拒绝必须额外靠 HTTP 403 计数或异常日志采集**，
+  只盯 `AUDIT foundation.authz.snapshot` 前缀会漏掉它绝大多数拒绝。
+
+因此标准路径的告警需要**两个信号源并用**：
+1. `AUDIT foundation.authz.snapshot.deny` / `.degrade`（覆盖 `stale` 模式下的边界）；
+2. 业务 403 计数中 message 匹配「授权快照不可用：」的子集（覆盖默认 `deny` 模式）。
+若只部署轻量路径（当前 Tioka 的实际形态），信号源 1 已足够。
+
+### 7.3 建议的采集与告警规则（可直接落地，不依赖未完成的代码增强）
+
+以日志采集器（Loki / ELK / CloudWatch Logs 等任一）按前缀抽取字段即可，**无需等 §6 的指标化改造**：
+
+- **抽取字段**：两条日志均含 `appCode` / `personId`；`deny` 另有 `cause`，`degrade` 另有 `staleMs` / `reason`。
+  建议按 `appCode` 聚合（定位是哪个接入应用），按 `personId` 去重（避免单人重试刷量）。
+- **告警 G1（可用性）**：单位时间窗内 `AUDIT foundation.authz.snapshot.deny` 计数 > 阈值
+  → 告警。阈值按基线设定：偶发（个位数/分钟）通常是中台抖动，**突增**（较基线数倍）才是事件。
+- **告警 G2（配置漂移，最高优先级）**：**任意一条** `AUDIT foundation.authz.snapshot.degrade`
+  → 立即告警 + 工单。理由见 §7.1：默认配置不可达，出现即配置偏离、且违反「D4 拍板前不启用 `stale`」。
+- **告警 G3（标准路径专用）**：HTTP 403 中 message 含「授权快照不可用：」的计数突增 → 告警。
+  仅在部署了 `foundation-starter-security` 标准路径时需要（见 §7.2）。
+- **响应头旁路**：降级放行会经 `DegradeHeaderFilter` 写 `X-Foundation-Degraded: true`（§3）。
+  网关侧统计该响应头占比，可作为 `degrade` 事件的**独立交叉验证**信号；
+  但注意 §3 已说明「响应体已提交（流式下载）时写不了头」，故它只是补充、不能替代日志采集。
+
+### 7.4 与待决策 D4 的边界（本节不代 D4 拍板）
+
+本节只规定「如何观测与告警」，**不改变任何降级决策行为**：
+
+- D4 若拍板「禁止授权 fail-open」：删掉 `isStaleAllowed()` 的 `stale` 分支后，`degrade` 前缀将彻底不可达，
+  告警 G2 退化为「理论上永不触发、一旦触发即为严重回归」的看门狗——**规则无需修改**。
+- D4 若拍板「允许授权降级」：`degrade` 变为正常业务信号，届时把告警 G2 从「立即工单」调整为
+  「按 `staleMs` 分布与频率监控」——**这是 D4 拍板后才做的告警调参，不在本节预设**。
+
+即：本节的采集规则在 D4 任一结论下都成立，无需为 D4 预留分支。
