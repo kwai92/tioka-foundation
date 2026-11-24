@@ -1,0 +1,878 @@
+# api-response-shapes-v1 — 对外 REST 端点返回类型与 com.foundation DTO 形状冻结基线。
+# 由 ResponseShapeContractTest 生成；勿手工编辑。刷新：mvn -pl foundation-server test \
+#   -Dtest=ResponseShapeContractTest -Dfoundation.contract.update=true
+
+## endpoints
+DELETE /api/apps/{code}/service-accounts/{id} -> void
+DELETE /api/fdn/accounts/{id}/sessions -> void
+DELETE /api/fdn/files/{id} -> void
+DELETE /api/fdn/files/{id}/refs -> void
+DELETE /api/fdn/job-grades/{id} -> void
+DELETE /api/fdn/org/units/{id} -> void
+DELETE /api/fdn/persons/{id} -> void
+DELETE /api/fdn/persons/{personId}/dimensions/{dimension} -> void
+DELETE /api/fdn/persons/{personId}/employments/{employmentId} -> void
+DELETE /api/fdn/positions/{id} -> void
+DELETE /api/grants/{id} -> void
+DELETE /api/roles/{code} -> void
+DELETE /api/scim/tokens/{id} -> void
+DELETE /scim/v2/Groups/{id} -> void
+DELETE /scim/v2/Users/{id} -> void
+GET /api/apps -> java.util.List<com.foundation.app.api.AppView>
+GET /api/apps/{code}/clients -> java.util.List<com.foundation.app.api.ClientView>
+GET /api/apps/{code}/menus -> java.util.List<com.foundation.authz.api.MenuView>
+GET /api/apps/{code}/service-accounts -> java.util.List<com.foundation.app.api.ServiceAccountView>
+GET /api/auth/login-modes -> java.util.List<com.foundation.auth.api.LoginModeView>
+GET /api/auth/policy -> com.foundation.auth.api.AuthPolicyView
+GET /api/authz/who -> com.foundation.authz.api.PermissionSubjectView
+GET /api/fdn/accounts -> com.foundation.account.api.dto.PageResult<com.foundation.account.api.dto.AccountView>
+GET /api/fdn/accounts/reconciles -> java.util.List<com.foundation.account.api.dto.AccountReconcileView>
+GET /api/fdn/accounts/{id}/sessions -> java.util.List<com.foundation.account.api.dto.AccountSessionView>
+GET /api/fdn/announcements -> com.foundation.notify.api.AnnouncementPageView
+GET /api/fdn/apps/{appCode}/persons/{personId}/snapshot -> com.foundation.authz.api.AuthzSnapshotView
+GET /api/fdn/apps/{appCode}/persons/{personId}/snapshot/version -> com.foundation.authz.api.SnapshotController$VersionResponse
+GET /api/fdn/audit/logs -> com.foundation.audit.api.AuditPageView
+GET /api/fdn/audit/logs/export -> java.lang.String
+GET /api/fdn/calendars -> java.util.List<com.foundation.calendar.api.CalendarView>
+GET /api/fdn/calendars/add-workdays -> com.foundation.calendar.api.WorkdayShiftView
+GET /api/fdn/calendars/diff-workdays -> com.foundation.calendar.api.WorkdayCountView
+GET /api/fdn/calendars/workday -> com.foundation.calendar.api.WorkdayView
+GET /api/fdn/calendars/{region}/{year}/days -> java.util.List<com.foundation.calendar.api.CalendarDayView>
+GET /api/fdn/dimensions -> java.util.List<com.foundation.authz.api.DataDimensionView>
+GET /api/fdn/external-identities -> java.util.List<com.foundation.account.api.dto.ExternalIdentityView>
+GET /api/fdn/files/signed/{token} -> org.springframework.http.ResponseEntity<org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody>
+GET /api/fdn/files/{id} -> com.foundation.file.api.FileView
+GET /api/fdn/files/{id}/content -> org.springframework.http.ResponseEntity<org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody>
+GET /api/fdn/files/{id}/signed-url -> com.foundation.file.api.SignedUrlView
+GET /api/fdn/high-risk-reviews -> com.foundation.authz.api.HighRiskReviewPageView
+GET /api/fdn/job-grades -> java.util.List<com.foundation.org.api.dto.JobGradeView>
+GET /api/fdn/login-logs -> com.foundation.audit.api.LoginLogPageView
+GET /api/fdn/login-logs/stats -> java.util.List<com.foundation.audit.api.LoginLogFailureStat>
+GET /api/fdn/message-templates -> java.util.List<com.foundation.notify.api.MessageTemplateView>
+GET /api/fdn/messages/mine -> com.foundation.notify.api.MessagePageView
+GET /api/fdn/messages/unread-count -> com.foundation.notify.api.UnreadCountView
+GET /api/fdn/org/export -> org.springframework.http.ResponseEntity<byte[]>
+GET /api/fdn/org/import/{taskId} -> com.foundation.org.api.dto.ImportResult
+GET /api/fdn/org/tree -> java.util.List<com.foundation.org.api.dto.OrgUnitTreeNode>
+GET /api/fdn/org/units -> com.foundation.org.api.dto.PageResult<com.foundation.org.api.dto.OrgUnitView>
+GET /api/fdn/org/units/{id}/changes -> java.util.List<com.foundation.org.api.dto.OrgChangeView>
+GET /api/fdn/permissions/{permissionCode}/subjects -> com.foundation.authz.api.PermissionSubjectView
+GET /api/fdn/persons -> com.foundation.org.api.dto.PageResult<com.foundation.org.api.dto.PersonView>
+GET /api/fdn/persons/{id} -> com.foundation.org.api.dto.PersonView
+GET /api/fdn/persons/{id}/changes -> java.util.List<com.foundation.org.api.dto.OrgChangeView>
+GET /api/fdn/persons/{personId}/employments -> java.util.List<com.foundation.org.api.dto.EmploymentView>
+GET /api/fdn/positions -> com.foundation.org.api.dto.PageResult<com.foundation.org.api.dto.PositionView>
+GET /api/fdn/roles/{roleCode}/data-scope -> com.foundation.authz.api.RoleDataScopeView
+GET /api/fdn/sequence-rules -> java.util.List<com.foundation.sequence.api.SequenceRuleView>
+GET /api/fdn/sequences/{ruleCode}/current -> com.foundation.sequence.api.SequenceCurrentView
+GET /api/fdn/service-accounts -> java.util.List<com.foundation.account.api.dto.AccountView>
+GET /api/fdn/service-accounts/handover -> java.util.List<com.foundation.account.api.dto.HandoverView>
+GET /api/feature-toggles -> java.util.List<com.foundation.authz.api.FeatureToggleView>
+GET /api/grants -> java.util.List<com.foundation.authz.api.RoleGrantView>
+GET /api/org-admin-scopes -> java.util.List<com.foundation.authz.api.OrgAdminScopeView>
+GET /api/org/units/{id}/local-locks -> java.util.Set<java.lang.String>
+GET /api/permissions -> java.util.List<com.foundation.authz.api.PermissionCodeView>
+GET /api/persons/{id}/local-locks -> java.util.Set<java.lang.String>
+GET /api/roles -> java.util.List<com.foundation.authz.api.RoleView>
+GET /api/scim/tokens -> java.util.List<com.foundation.sync.scim.api.dto.ScimTokenView>
+GET /api/subsystems -> java.util.List<com.foundation.authz.api.SubsystemView>
+GET /api/subsystems/{code}/directory -> com.foundation.authz.api.DirectoryView
+GET /api/sync/conflicts -> com.foundation.sync.api.dto.PageResult<com.foundation.sync.api.dto.SyncConflictView>
+GET /api/sync/sources -> java.util.List<com.foundation.sync.api.dto.SyncSourceView>
+GET /api/sync/sources/{sourceId}/field-mappings -> java.util.List<com.foundation.sync.api.dto.FieldMappingView>
+GET /api/sync/tasks -> com.foundation.sync.api.dto.PageResult<com.foundation.sync.api.dto.SyncTaskView>
+GET /api/sync/tasks/{id} -> com.foundation.sync.api.dto.SyncTaskView
+GET /api/sync/tasks/{id}/download -> java.lang.String
+GET /api/sync/tasks/{id}/logs -> java.util.List<com.foundation.sync.api.dto.SyncLogView>
+GET /api/system/auth/me -> com.foundation.authz.api.AuthzSnapshotView
+GET /scim/v2/Groups -> java.util.Map<java.lang.String, java.lang.Object>
+GET /scim/v2/Groups/{id} -> java.util.Map<java.lang.String, java.lang.Object>
+GET /scim/v2/ResourceTypes -> java.util.Map<java.lang.String, java.lang.Object>
+GET /scim/v2/Schemas -> java.util.Map<java.lang.String, java.lang.Object>
+GET /scim/v2/ServiceProviderConfig -> java.util.Map<java.lang.String, java.lang.Object>
+GET /scim/v2/Users -> java.util.Map<java.lang.String, java.lang.Object>
+GET /scim/v2/Users/{id} -> java.util.Map<java.lang.String, java.lang.Object>
+PATCH /scim/v2/Groups/{id} -> java.util.Map<java.lang.String, java.lang.Object>
+PATCH /scim/v2/Users/{id} -> java.util.Map<java.lang.String, java.lang.Object>
+POST /api/apps -> com.foundation.app.api.AppView
+POST /api/apps/{code}/clients/{clientId}/rotate-secret -> com.foundation.app.api.AppClientController$RotatedSecret
+POST /api/apps/{code}/manifest -> com.foundation.authz.api.ManifestImportResult
+POST /api/apps/{code}/service-accounts -> com.foundation.app.api.ServiceAccountView
+POST /api/auth/policy/apply -> com.foundation.auth.api.AuthApplyResult
+POST /api/fdn/accounts -> com.foundation.account.api.dto.AccountView
+POST /api/fdn/accounts/emergency/{id}/enable-confirm -> void
+POST /api/fdn/accounts/emergency/{id}/enable-request -> com.foundation.account.api.dto.EmergencyEnableTicket
+POST /api/fdn/announcements -> com.foundation.notify.api.AnnouncementView
+POST /api/fdn/announcements/{id}/offline -> com.foundation.notify.api.AnnouncementView
+POST /api/fdn/announcements/{id}/publish -> com.foundation.notify.api.AnnouncementView
+POST /api/fdn/apps/{appCode}/snapshots:batch -> java.util.List<com.foundation.authz.api.AuthzSnapshotView>
+POST /api/fdn/audit/events:batch -> com.foundation.audit.api.AuditReportResult
+POST /api/fdn/calendars/{region}/{year}/import -> com.foundation.calendar.api.CalendarImportResult
+POST /api/fdn/dimensions -> com.foundation.authz.api.DataDimensionController$IdResponse
+POST /api/fdn/external-identities/{id}/confirm -> void
+POST /api/fdn/external-identities/{id}/unlink -> void
+POST /api/fdn/files -> com.foundation.file.api.FileUploadResult
+POST /api/fdn/files/multipart:complete -> com.foundation.file.api.FileUploadResult
+POST /api/fdn/files/multipart:init -> com.foundation.file.api.MultipartInitView
+POST /api/fdn/files/{id}/refs -> com.foundation.file.api.FileRefView
+POST /api/fdn/high-risk-reviews/{id}/approve -> com.foundation.authz.api.HighRiskReviewView
+POST /api/fdn/high-risk-reviews/{id}/reject -> com.foundation.authz.api.HighRiskReviewView
+POST /api/fdn/job-grades -> com.foundation.org.api.dto.JobGradeView
+POST /api/fdn/message-templates -> com.foundation.notify.api.MessageTemplateView
+POST /api/fdn/messages -> com.foundation.notify.api.MessageView
+POST /api/fdn/org/import -> com.foundation.org.api.dto.ImportResult
+POST /api/fdn/org/units -> com.foundation.org.api.dto.OrgUnitView
+POST /api/fdn/persons -> com.foundation.org.api.dto.PersonView
+POST /api/fdn/persons/{id}/offboard -> com.foundation.account.api.dto.OffboardingResult
+POST /api/fdn/persons/{personId}/dimensions -> com.foundation.authz.api.DataScopeController$IdsResponse
+POST /api/fdn/persons/{personId}/employments -> com.foundation.org.api.dto.EmploymentView
+POST /api/fdn/positions -> com.foundation.org.api.dto.PositionView
+POST /api/fdn/sequence-rules -> com.foundation.sequence.api.SequenceRuleView
+POST /api/fdn/sequences:next -> com.foundation.sequence.api.SequenceBatch
+POST /api/fdn/service-accounts -> com.foundation.account.api.dto.AccountView
+POST /api/fdn/service-accounts/{id}/handover -> com.foundation.account.api.dto.HandoverView
+POST /api/fdn/snapshots:recompute -> com.foundation.authz.api.SnapshotRecomputeResult
+POST /api/grants -> com.foundation.authz.api.GrantController$IdResponse
+POST /api/roles -> com.foundation.authz.api.RoleView
+POST /api/scim/tokens -> com.foundation.sync.scim.api.dto.ScimTokenView
+POST /api/subsystems/{code}/self-imports -> com.foundation.authz.api.SelfImportPreviewView
+POST /api/subsystems/{code}/self-imports/{batchId}/apply -> com.foundation.authz.api.SelfImportApplyResult
+POST /api/sync/conflicts/{id}/resolve -> com.foundation.sync.api.dto.SyncConflictView
+POST /api/sync/sources -> com.foundation.sync.api.dto.SyncSourceView
+POST /api/sync/sources/{id}/preview -> com.foundation.sync.api.dto.DiffPreviewView
+POST /api/sync/sources/{id}/probe -> com.foundation.sync.spi.ProbeResult
+POST /api/sync/sources/{id}/run -> com.foundation.sync.api.dto.SyncTaskView
+POST /api/sync/tasks/{id}/cancel -> com.foundation.sync.api.dto.SyncTaskView
+POST /api/sync/tasks/{id}/confirm -> com.foundation.sync.api.dto.SyncTaskView
+POST /scim/v2/Groups -> java.util.Map<java.lang.String, java.lang.Object>
+POST /scim/v2/Users -> java.util.Map<java.lang.String, java.lang.Object>
+PUT /api/apps/{code} -> com.foundation.app.api.AppView
+PUT /api/auth/login-modes -> com.foundation.auth.api.AuthApplyResult
+PUT /api/auth/policy -> com.foundation.auth.api.AuthApplyResult
+PUT /api/fdn/accounts/{id}/disable -> void
+PUT /api/fdn/accounts/{id}/enable -> void
+PUT /api/fdn/accounts/{id}/lock -> void
+PUT /api/fdn/accounts/{id}/reset-password -> com.foundation.account.api.dto.AccountResetResult
+PUT /api/fdn/accounts/{id}/unlock -> void
+PUT /api/fdn/announcements/{id} -> com.foundation.notify.api.AnnouncementView
+PUT /api/fdn/calendars/{region}/{year}/days -> com.foundation.calendar.api.CalendarDayView
+PUT /api/fdn/dimensions/{code} -> void
+PUT /api/fdn/dimensions/{code}/values:sync -> com.foundation.authz.api.DimensionValueSyncResult
+PUT /api/fdn/files/multipart:part -> void
+PUT /api/fdn/job-grades/{id} -> com.foundation.org.api.dto.JobGradeView
+PUT /api/fdn/message-templates/{id} -> com.foundation.notify.api.MessageTemplateView
+PUT /api/fdn/messages/read-all -> int
+PUT /api/fdn/messages/{id}/read -> com.foundation.notify.api.MessageView
+PUT /api/fdn/org/units/{id} -> com.foundation.org.api.dto.OrgUnitView
+PUT /api/fdn/persons/by-external/{source}/{externalId} -> com.foundation.org.api.dto.PersonView
+PUT /api/fdn/persons/{id} -> com.foundation.org.api.dto.PersonView
+PUT /api/fdn/persons/{id}/report-line -> void
+PUT /api/fdn/persons/{personId}/employments/{employmentId} -> com.foundation.org.api.dto.EmploymentView
+PUT /api/fdn/positions/{id} -> com.foundation.org.api.dto.PositionView
+PUT /api/fdn/roles/{roleCode}/data-scope -> void
+PUT /api/fdn/sequence-rules/{code} -> com.foundation.sequence.api.SequenceRuleView
+PUT /api/fdn/service-accounts/{id}/disable -> void
+PUT /api/fdn/service-accounts/{id}/enable -> void
+PUT /api/feature-toggles/{scopeType}/{scopeId} -> com.foundation.authz.api.FeatureToggleView
+PUT /api/menus/{id} -> com.foundation.authz.api.MenuView
+PUT /api/org-admin-scopes -> com.foundation.authz.api.OrgAdminScopeView
+PUT /api/org/units/{id}/local-locks -> java.util.Set<java.lang.String>
+PUT /api/persons/{id}/local-locks -> java.util.Set<java.lang.String>
+PUT /api/roles/{code} -> com.foundation.authz.api.RoleView
+PUT /api/subsystems/{code}/auth-mode -> com.foundation.authz.api.SubsystemView
+PUT /api/sync/sources/{id} -> com.foundation.sync.api.dto.SyncSourceView
+PUT /api/sync/sources/{sourceId}/field-mappings -> java.util.List<com.foundation.sync.api.dto.FieldMappingView>
+PUT /scim/v2/Groups/{id} -> java.util.Map<java.lang.String, java.lang.Object>
+PUT /scim/v2/Users/{id} -> java.util.Map<java.lang.String, java.lang.Object>
+
+## types
+TYPE com.foundation.account.api.dto.AccountReconcileView (record)
+  FIELD detailJson: java.lang.String
+  FIELD drifted: int
+  FIELD fixed: int
+  FIELD held: boolean
+  FIELD id: java.lang.String
+  FIELD ranAt: java.time.Instant
+  FIELD total: int
+TYPE com.foundation.account.api.dto.AccountResetResult (record)
+  FIELD emailSent: boolean
+  FIELD temporaryPassword: java.lang.String
+TYPE com.foundation.account.api.dto.AccountSessionView (record)
+  FIELD id: java.lang.String
+  FIELD ipAddress: java.lang.String
+  FIELD lastAccess: java.time.Instant
+  FIELD start: java.time.Instant
+TYPE com.foundation.account.api.dto.AccountStatus (enum)
+  ENUM DISABLED, LOCKED, NORMAL
+TYPE com.foundation.account.api.dto.AccountType (enum)
+  ENUM EMERGENCY_ADMIN, PERSONAL, SERVICE
+TYPE com.foundation.account.api.dto.AccountView (record)
+  FIELD id: java.lang.String
+  FIELD keycloakUserId: java.lang.String
+  FIELD lastLoginAt: java.time.Instant
+  FIELD loginName: java.lang.String
+  FIELD personId: java.lang.String
+  FIELD status: com.foundation.account.api.dto.AccountStatus
+  FIELD type: com.foundation.account.api.dto.AccountType
+  FIELD version: long
+TYPE com.foundation.account.api.dto.EmergencyEnableTicket (record)
+  FIELD accountId: java.lang.String
+  FIELD expiresAt: java.time.Instant
+  FIELD requestId: java.lang.String
+TYPE com.foundation.account.api.dto.ExternalIdentitySource (enum)
+  ENUM AD_OBJECTGUID, DINGTALK_USER_ID, FEISHU_OPEN_ID, FEISHU_UNION_ID, SCIM_EXTERNAL_ID, WECOM_USER_ID
+TYPE com.foundation.account.api.dto.ExternalIdentityView (record)
+  FIELD externalId: java.lang.String
+  FIELD id: java.lang.String
+  FIELD linkMode: com.foundation.account.api.dto.LinkMode
+  FIELD linkedAt: java.time.Instant
+  FIELD personId: java.lang.String
+  FIELD source: com.foundation.account.api.dto.ExternalIdentitySource
+TYPE com.foundation.account.api.dto.HandoverView (record)
+  FIELD accountId: java.lang.String
+  FIELD appCode: java.lang.String
+  FIELD createAt: java.time.Instant
+  FIELD handledAt: java.time.Instant
+  FIELD id: java.lang.String
+  FIELD name: java.lang.String
+  FIELD newOwnerPersonId: java.lang.String
+  FIELD ownerPersonId: java.lang.String
+  FIELD permissionCodes: java.util.List<java.lang.String>
+  FIELD serviceAccountId: java.lang.String
+  FIELD status: java.lang.String
+TYPE com.foundation.account.api.dto.LinkMode (enum)
+  ENUM ADMIN, AUTO, SELF_CONFIRMED
+TYPE com.foundation.account.api.dto.OffboardingResult (record)
+  FIELD accountId: java.lang.String
+  FIELD handoverCount: int
+  FIELD keycloakUserId: java.lang.String
+  FIELD personId: java.lang.String
+  FIELD revokedAt: java.time.Instant
+  FIELD sessionsRevoked: boolean
+TYPE com.foundation.account.api.dto.PageResult (record) <T>
+  FIELD items: java.util.List<T>
+  FIELD page: int
+  FIELD size: int
+  FIELD total: long
+TYPE com.foundation.app.api.AppClientController$RotatedSecret (record)
+  FIELD clientId: java.lang.String
+  FIELD clientSecret: java.lang.String
+TYPE com.foundation.app.api.AppView (record)
+  FIELD accessUrl: java.lang.String
+  FIELD code: java.lang.String
+  FIELD icon: java.lang.String
+  FIELD id: java.lang.String
+  FIELD kind: java.lang.String
+  FIELD manifestVersion: long
+  FIELD name: java.lang.String
+  FIELD ownerUserId: java.lang.String
+  FIELD status: java.lang.String
+TYPE com.foundation.app.api.ClientView (record)
+  FIELD appId: java.lang.String
+  FIELD clientId: java.lang.String
+  FIELD grantTypes: java.util.List<java.lang.String>
+  FIELD id: java.lang.String
+  FIELD redirectUris: java.util.List<java.lang.String>
+  FIELD secretRotatedAt: java.time.Instant
+  FIELD status: java.lang.String
+TYPE com.foundation.app.api.ServiceAccountView (record)
+  FIELD accountId: java.lang.String
+  FIELD appId: java.lang.String
+  FIELD clientId: java.lang.String
+  FIELD expiresAt: java.time.Instant
+  FIELD id: java.lang.String
+  FIELD name: java.lang.String
+  FIELD ownerUserId: java.lang.String
+  FIELD permissionCodes: java.util.List<java.lang.String>
+  FIELD status: java.lang.String
+TYPE com.foundation.audit.api.AuditPageView (record)
+  FIELD items: java.util.List<com.foundation.audit.api.AuditView>
+  FIELD nextCursor: java.lang.String
+TYPE com.foundation.audit.api.AuditReportResult (record)
+  FIELD accepted: int
+TYPE com.foundation.audit.api.AuditView (record)
+  FIELD action: java.lang.String
+  FIELD actorId: java.lang.String
+  FIELD actorType: java.lang.String
+  FIELD appCode: java.lang.String
+  FIELD clientIp: java.lang.String
+  FIELD dataLabel: java.lang.String
+  FIELD detail: java.lang.String
+  FIELD durationMillis: long
+  FIELD id: java.lang.String
+  FIELD origin: java.lang.String
+  FIELD outcome: java.lang.String
+  FIELD reason: java.lang.String
+  FIELD requestId: java.lang.String
+  FIELD resourceId: java.lang.String
+  FIELD resourceType: java.lang.String
+  FIELD retentionClass: java.lang.String
+  FIELD runAs: java.lang.String
+  FIELD subject: java.lang.String
+  FIELD traceId: java.lang.String
+  FIELD ts: java.time.Instant
+  FIELD userAgent: java.lang.String
+TYPE com.foundation.audit.api.LoginLogFailureStat (record)
+  FIELD failures: long
+  FIELD loginName: java.lang.String
+TYPE com.foundation.audit.api.LoginLogPageView (record)
+  FIELD items: java.util.List<com.foundation.audit.api.LoginLogView>
+  FIELD page: int
+  FIELD size: int
+  FIELD total: long
+TYPE com.foundation.audit.api.LoginLogView (record)
+  FIELD accountId: java.lang.String
+  FIELD authMethod: java.lang.String
+  FIELD clientId: java.lang.String
+  FIELD clientIp: java.lang.String
+  FIELD failureReason: java.lang.String
+  FIELD id: java.lang.String
+  FIELD keycloakUserId: java.lang.String
+  FIELD loginName: java.lang.String
+  FIELD personId: java.lang.String
+  FIELD success: boolean
+  FIELD ts: java.time.Instant
+  FIELD userAgent: java.lang.String
+TYPE com.foundation.auth.api.AuthApplyItem (record)
+  FIELD detail: java.lang.String
+  FIELD item: java.lang.String
+  FIELD success: boolean
+TYPE com.foundation.auth.api.AuthApplyResult (record)
+  FIELD items: java.util.List<com.foundation.auth.api.AuthApplyItem>
+  FIELD success: boolean
+TYPE com.foundation.auth.api.AuthPolicyView (record)
+  FIELD concurrentSessions: int
+  FIELD passwordPolicy: java.lang.String
+  FIELD sessionIdleMinutes: int
+  FIELD sessionMaxHours: int
+  FIELD totpRequiredRoles: java.util.List<java.lang.String>
+TYPE com.foundation.auth.api.LoginModeView (record)
+  FIELD complex: boolean
+  FIELD consoleHint: java.lang.String
+  FIELD enabled: boolean
+  FIELD modeCode: java.lang.String
+  FIELD name: java.lang.String
+  FIELD sortOrder: int
+TYPE com.foundation.authz.api.AuthzSnapshotView (record)
+  FIELD appCode: java.lang.String
+  FIELD computedAt: java.time.Instant
+  FIELD deptScope: com.foundation.authz.api.ScopeView
+  FIELD dimensions: java.util.Map<java.lang.String, com.foundation.authz.api.ScopeView>
+  FIELD menus: java.util.List<com.foundation.authz.api.AuthzSnapshotView$MenuNode>
+  FIELD permissions: java.util.List<java.lang.String>
+  FIELD person: com.foundation.authz.api.AuthzSnapshotView$PersonAttributes
+  FIELD personId: java.lang.String
+  FIELD roles: java.util.List<java.lang.String>
+  FIELD version: long
+TYPE com.foundation.authz.api.AuthzSnapshotView$MenuNode (record)
+  FIELD children: java.util.List<com.foundation.authz.api.AuthzSnapshotView$MenuNode>
+  FIELD code: java.lang.String
+  FIELD type: java.lang.String
+TYPE com.foundation.authz.api.AuthzSnapshotView$PersonAttributes (record)
+  FIELD grade: java.lang.String
+  FIELD positions: java.util.List<java.lang.String>
+  FIELD primaryOrgUnit: java.lang.String
+TYPE com.foundation.authz.api.DataDimensionController$IdResponse (record)
+  FIELD id: java.lang.String
+TYPE com.foundation.authz.api.DataDimensionView (record)
+  FIELD appCode: java.lang.String
+  FIELD code: java.lang.String
+  FIELD hierarchical: boolean
+  FIELD id: java.lang.String
+  FIELD name: java.lang.String
+  FIELD valueSource: java.lang.String
+TYPE com.foundation.authz.api.DataScopeController$IdsResponse (record)
+  FIELD ids: java.util.List<java.lang.String>
+TYPE com.foundation.authz.api.DimensionValueSyncResult (record)
+  FIELD created: int
+  FIELD deactivated: int
+  FIELD updated: int
+TYPE com.foundation.authz.api.DirectoryNodeView (record)
+  FIELD children: java.util.List<com.foundation.authz.api.DirectoryNodeView>
+  FIELD code: java.lang.String
+  FIELD enabled: boolean
+  FIELD level: java.lang.String
+  FIELD menuId: java.lang.String
+  FIELD name: java.lang.String
+TYPE com.foundation.authz.api.DirectoryView (record)
+  FIELD appCode: java.lang.String
+  FIELD authMode: java.lang.String
+  FIELD modules: java.util.List<com.foundation.authz.api.DirectoryNodeView>
+  FIELD subsystemId: java.lang.String
+TYPE com.foundation.authz.api.FeatureToggleView (record)
+  FIELD enabled: boolean
+  FIELD reason: java.lang.String
+  FIELD scopeId: java.lang.String
+  FIELD scopeType: java.lang.String
+TYPE com.foundation.authz.api.GrantController$IdResponse (record)
+  FIELD id: java.lang.String
+TYPE com.foundation.authz.api.HighRiskReviewPageView (record)
+  FIELD items: java.util.List<com.foundation.authz.api.HighRiskReviewView>
+  FIELD nextCursor: java.lang.String
+TYPE com.foundation.authz.api.HighRiskReviewView (record)
+  FIELD createAt: java.time.Instant
+  FIELD grantId: java.lang.String
+  FIELD id: java.lang.String
+  FIELD permissionCode: java.lang.String
+  FIELD reason: java.lang.String
+  FIELD requestedBy: java.lang.String
+  FIELD reviewedAt: java.time.Instant
+  FIELD reviewerId: java.lang.String
+  FIELD roleCode: java.lang.String
+  FIELD status: java.lang.String
+  FIELD subjectId: java.lang.String
+  FIELD subjectType: java.lang.String
+TYPE com.foundation.authz.api.ManifestImportResult (record)
+  FIELD appCode: java.lang.String
+  FIELD contentHash: java.lang.String
+  FIELD idempotent: boolean
+  FIELD importedAt: java.time.Instant
+  FIELD menuCount: int
+  FIELD offlineCount: int
+  FIELD permissionCodeCount: int
+  FIELD version: long
+TYPE com.foundation.authz.api.MenuView (record)
+  FIELD appId: java.lang.String
+  FIELD code: java.lang.String
+  FIELD component: java.lang.String
+  FIELD icon: java.lang.String
+  FIELD id: java.lang.String
+  FIELD name: java.lang.String
+  FIELD parentId: java.lang.String
+  FIELD permissionCode: java.lang.String
+  FIELD routePath: java.lang.String
+  FIELD sort: int
+  FIELD status: java.lang.String
+  FIELD type: java.lang.String
+  FIELD visible: boolean
+TYPE com.foundation.authz.api.OrgAdminScopeView (record)
+  FIELD grantableRoles: java.util.List<java.lang.String>
+  FIELD id: java.lang.String
+  FIELD includeDescendants: boolean
+  FIELD orgUnitId: java.lang.String
+  FIELD userId: java.lang.String
+TYPE com.foundation.authz.api.PermissionCodeView (record)
+  FIELD appId: java.lang.String
+  FIELD code: java.lang.String
+  FIELD firstSeenAt: java.time.Instant
+  FIELD id: java.lang.String
+  FIELD name: java.lang.String
+  FIELD offlineAt: java.time.Instant
+  FIELD riskLevel: java.lang.String
+  FIELD status: java.lang.String
+TYPE com.foundation.authz.api.PermissionSubjectView (record)
+  FIELD permissionCode: java.lang.String
+  FIELD subjects: java.util.List<com.foundation.authz.api.PermissionSubjectView$Entry>
+TYPE com.foundation.authz.api.PermissionSubjectView$Entry (record)
+  FIELD dataScope: com.foundation.authz.api.RoleDataScopeView
+  FIELD includeDescendants: boolean
+  FIELD roleCode: java.lang.String
+  FIELD subjectId: java.lang.String
+  FIELD subjectType: java.lang.String
+TYPE com.foundation.authz.api.RoleDataScopeView (record)
+  FIELD deptScope: java.lang.String
+  FIELD deptUnits: java.util.List<java.lang.String>
+  FIELD dimensions: java.util.Map<java.lang.String, com.foundation.authz.api.ScopeView>
+  FIELD roleCode: java.lang.String
+TYPE com.foundation.authz.api.RoleGrantView (record)
+  FIELD effectiveFrom: java.time.Instant
+  FIELD effectiveTo: java.time.Instant
+  FIELD id: java.lang.String
+  FIELD includeDescendants: boolean
+  FIELD roleCode: java.lang.String
+  FIELD source: java.lang.String
+  FIELD subjectId: java.lang.String
+  FIELD subjectType: java.lang.String
+TYPE com.foundation.authz.api.RoleView (record)
+  FIELD appId: java.lang.String
+  FIELD builtIn: boolean
+  FIELD code: java.lang.String
+  FIELD dataScope: java.lang.String
+  FIELD name: java.lang.String
+  FIELD permissions: java.util.List<java.lang.String>
+  FIELD scope: java.lang.String
+TYPE com.foundation.authz.api.ScopeView (record)
+  FIELD all: boolean
+  FIELD values: java.util.List<java.lang.String>
+TYPE com.foundation.authz.api.SelfImportApplyResult (record)
+  FIELD alreadyApplied: boolean
+  FIELD authMode: java.lang.String
+  FIELD batchId: java.lang.String
+  FIELD createdAssignments: int
+  FIELD createdRoles: int
+  FIELD subsystemId: java.lang.String
+TYPE com.foundation.authz.api.SelfImportPreviewView (record)
+  FIELD batchId: java.lang.String
+  FIELD conflicts: int
+  FIELD details: java.util.List<java.lang.String>
+  FIELD newAssignments: int
+  FIELD newRoles: int
+  FIELD status: java.lang.String
+  FIELD subsystemId: java.lang.String
+TYPE com.foundation.authz.api.SnapshotController$VersionResponse (record)
+  FIELD version: long
+TYPE com.foundation.authz.api.SnapshotRecomputeResult (record)
+  FIELD recomputed: int
+TYPE com.foundation.authz.api.SubsystemView (record)
+  FIELD adminUserId: java.lang.String
+  FIELD appCode: java.lang.String
+  FIELD appId: java.lang.String
+  FIELD authMode: java.lang.String
+  FIELD id: java.lang.String
+  FIELD name: java.lang.String
+  FIELD portalVisible: boolean
+TYPE com.foundation.calendar.api.CalendarDayView (record)
+  FIELD dayDate: java.time.LocalDate
+  FIELD dayType: java.lang.String
+  FIELD name: java.lang.String
+  FIELD workday: boolean
+TYPE com.foundation.calendar.api.CalendarImportResult (record)
+  FIELD importedDays: int
+  FIELD region: java.lang.String
+  FIELD year: int
+TYPE com.foundation.calendar.api.CalendarView (record)
+  FIELD id: java.lang.String
+  FIELD name: java.lang.String
+  FIELD regionCode: java.lang.String
+  FIELD source: java.lang.String
+  FIELD status: java.lang.String
+  FIELD year: int
+TYPE com.foundation.calendar.api.WorkdayCountView (record)
+  FIELD from: java.time.LocalDate
+  FIELD region: java.lang.String
+  FIELD to: java.time.LocalDate
+  FIELD workdays: int
+TYPE com.foundation.calendar.api.WorkdayShiftView (record)
+  FIELD from: java.time.LocalDate
+  FIELD region: java.lang.String
+  FIELD result: java.time.LocalDate
+  FIELD workdays: int
+TYPE com.foundation.calendar.api.WorkdayView (record)
+  FIELD date: java.time.LocalDate
+  FIELD region: java.lang.String
+  FIELD workday: boolean
+TYPE com.foundation.file.api.FileRefView (record)
+  FIELD appCode: java.lang.String
+  FIELD bizId: java.lang.String
+  FIELD bizType: java.lang.String
+  FIELD createAt: java.time.LocalDateTime
+  FIELD fileId: java.lang.String
+  FIELD id: java.lang.String
+TYPE com.foundation.file.api.FileUploadResult (record)
+  FIELD fileId: java.lang.String
+  FIELD sha256: java.lang.String
+  FIELD size: long
+TYPE com.foundation.file.api.FileView (record)
+  FIELD appCode: java.lang.String
+  FIELD bizId: java.lang.String
+  FIELD bizType: java.lang.String
+  FIELD contentType: java.lang.String
+  FIELD createAt: java.time.LocalDateTime
+  FIELD dataLabel: java.lang.String
+  FIELD fileName: java.lang.String
+  FIELD id: java.lang.String
+  FIELD scanStatus: java.lang.String
+  FIELD sha256: java.lang.String
+  FIELD sizeBytes: long
+  FIELD status: java.lang.String
+  FIELD storageKind: java.lang.String
+  FIELD uploadedBy: java.lang.String
+TYPE com.foundation.file.api.MultipartInitView (record)
+  FIELD partSize: long
+  FIELD parts: java.util.List<com.foundation.file.api.PresignedPartView>
+  FIELD uploadId: java.lang.String
+TYPE com.foundation.file.api.PresignedPartView (record)
+  FIELD partNumber: int
+  FIELD url: java.lang.String
+TYPE com.foundation.file.api.SignedUrlView (record)
+  FIELD expiresAt: java.time.LocalDateTime
+  FIELD method: java.lang.String
+  FIELD url: java.lang.String
+TYPE com.foundation.notify.api.AnnouncementPageView (record)
+  FIELD items: java.util.List<com.foundation.notify.api.AnnouncementView>
+  FIELD nextCursor: java.lang.String
+TYPE com.foundation.notify.api.AnnouncementScopeType (enum)
+  ENUM GLOBAL, ORG, ROLE
+TYPE com.foundation.notify.api.AnnouncementStatus (enum)
+  ENUM DRAFT, OFFLINE, PUBLISHED
+TYPE com.foundation.notify.api.AnnouncementView (record)
+  FIELD content: java.lang.String
+  FIELD createAt: java.time.Instant
+  FIELD dataLabel: java.lang.String
+  FIELD expireAt: java.time.Instant
+  FIELD id: java.lang.String
+  FIELD publishAt: java.time.Instant
+  FIELD publisherId: java.lang.String
+  FIELD scopeId: java.lang.String
+  FIELD scopeType: com.foundation.notify.api.AnnouncementScopeType
+  FIELD status: com.foundation.notify.api.AnnouncementStatus
+  FIELD title: java.lang.String
+TYPE com.foundation.notify.api.MessageKind (enum)
+  ENUM ANNOUNCEMENT, INBOX, NOTICE, TODO
+TYPE com.foundation.notify.api.MessagePageView (record)
+  FIELD items: java.util.List<com.foundation.notify.api.MessageView>
+  FIELD nextCursor: java.lang.String
+TYPE com.foundation.notify.api.MessagePriority (enum)
+  ENUM HIGH, LOW, NORMAL
+TYPE com.foundation.notify.api.MessageTemplateView (record)
+  FIELD appCode: java.lang.String
+  FIELD bodyTpl: java.lang.String
+  FIELD channel: java.lang.String
+  FIELD code: java.lang.String
+  FIELD dataLabel: java.lang.String
+  FIELD id: java.lang.String
+  FIELD status: java.lang.String
+  FIELD titleTpl: java.lang.String
+TYPE com.foundation.notify.api.MessageView (record)
+  FIELD appCode: java.lang.String
+  FIELD body: java.lang.String
+  FIELD channels: java.util.List<java.lang.String>
+  FIELD createAt: java.time.Instant
+  FIELD dataLabel: java.lang.String
+  FIELD id: java.lang.String
+  FIELD kind: com.foundation.notify.api.MessageKind
+  FIELD link: java.lang.String
+  FIELD payload: java.util.Map<java.lang.String, java.lang.Object>
+  FIELD priority: com.foundation.notify.api.MessagePriority
+  FIELD read: boolean
+  FIELD readAt: java.time.Instant
+  FIELD senderId: java.lang.String
+  FIELD senderName: java.lang.String
+  FIELD templateCode: java.lang.String
+  FIELD title: java.lang.String
+TYPE com.foundation.notify.api.UnreadCountView (record)
+  FIELD byKind: java.util.Map<java.lang.String, java.lang.Long>
+  FIELD total: long
+TYPE com.foundation.org.api.dto.ChangeAction (enum)
+  ENUM CREATE, DISABLE, IMPORT, MOVE, UPDATE
+TYPE com.foundation.org.api.dto.ChangeEntityType (enum)
+  ENUM EMPLOYMENT, JOB_GRADE, ORG_UNIT, PERSON, POSITION, REPORT_LINE
+TYPE com.foundation.org.api.dto.EmploymentView (record)
+  FIELD endDate: java.time.LocalDate
+  FIELD id: java.lang.String
+  FIELD orgUnitId: java.lang.String
+  FIELD personId: java.lang.String
+  FIELD positionId: java.lang.String
+  FIELD primary: boolean
+  FIELD startDate: java.time.LocalDate
+TYPE com.foundation.org.api.dto.ImportError (record)
+  FIELD message: java.lang.String
+  FIELD row: int
+  FIELD sheet: java.lang.String
+TYPE com.foundation.org.api.dto.ImportResult (record)
+  FIELD created: int
+  FIELD errors: java.util.List<com.foundation.org.api.dto.ImportError>
+  FIELD skipped: int
+  FIELD taskId: java.lang.String
+  FIELD updated: int
+TYPE com.foundation.org.api.dto.JobGradeView (record)
+  FIELD code: java.lang.String
+  FIELD gradeLevel: int
+  FIELD id: java.lang.String
+  FIELD name: java.lang.String
+  FIELD series: java.lang.String
+  FIELD sortNo: int
+TYPE com.foundation.org.api.dto.OrgChangeView (record)
+  FIELD action: com.foundation.org.api.dto.ChangeAction
+  FIELD actor: java.lang.String
+  FIELD afterJson: java.lang.String
+  FIELD beforeJson: java.lang.String
+  FIELD createAt: java.time.Instant
+  FIELD entityId: java.lang.String
+  FIELD entityType: com.foundation.org.api.dto.ChangeEntityType
+  FIELD id: java.lang.String
+  FIELD source: java.lang.String
+TYPE com.foundation.org.api.dto.OrgStatus (enum)
+  ENUM ACTIVE, DISABLED
+TYPE com.foundation.org.api.dto.OrgUnitTreeNode (record)
+  FIELD childCount: int
+  FIELD children: java.util.List<com.foundation.org.api.dto.OrgUnitTreeNode>
+  FIELD positionCount: int
+  FIELD unit: com.foundation.org.api.dto.OrgUnitView
+TYPE com.foundation.org.api.dto.OrgUnitType (enum)
+  ENUM COMPANY, DEPARTMENT, GROUP
+TYPE com.foundation.org.api.dto.OrgUnitView (record)
+  FIELD code: java.lang.String
+  FIELD depth: int
+  FIELD effectiveAt: java.time.Instant
+  FIELD id: java.lang.String
+  FIELD leaderPersonId: java.lang.String
+  FIELD name: java.lang.String
+  FIELD parentId: java.lang.String
+  FIELD path: java.lang.String
+  FIELD sortNo: int
+  FIELD status: com.foundation.org.api.dto.OrgStatus
+  FIELD type: com.foundation.org.api.dto.OrgUnitType
+  FIELD version: long
+TYPE com.foundation.org.api.dto.PageResult (record) <T>
+  FIELD items: java.util.List<T>
+  FIELD page: int
+  FIELD size: int
+  FIELD total: long
+TYPE com.foundation.org.api.dto.PersonStatus (enum)
+  ENUM ACTIVE, DISABLED, LEFT
+TYPE com.foundation.org.api.dto.PersonType (enum)
+  ENUM DIGITAL_EMPLOYEE, EMPLOYEE, OUTSOURCED
+TYPE com.foundation.org.api.dto.PersonView (record)
+  FIELD email: java.lang.String
+  FIELD empNo: java.lang.String
+  FIELD id: java.lang.String
+  FIELD managerPersonId: java.lang.String
+  FIELD masked: boolean
+  FIELD mobile: java.lang.String
+  FIELD name: java.lang.String
+  FIELD primaryOrgUnitId: java.lang.String
+  FIELD status: com.foundation.org.api.dto.PersonStatus
+  FIELD type: com.foundation.org.api.dto.PersonType
+  FIELD version: long
+TYPE com.foundation.org.api.dto.PositionView (record)
+  FIELD code: java.lang.String
+  FIELD id: java.lang.String
+  FIELD name: java.lang.String
+  FIELD orgUnitId: java.lang.String
+  FIELD sortNo: int
+  FIELD status: com.foundation.org.api.dto.OrgStatus
+TYPE com.foundation.sequence.api.SequenceBatch (record)
+  FIELD values: java.util.List<java.lang.String>
+TYPE com.foundation.sequence.api.SequenceCurrentView (record)
+  FIELD current: long
+  FIELD periodKey: java.lang.String
+  FIELD ruleCode: java.lang.String
+TYPE com.foundation.sequence.api.SequenceRuleView (record)
+  FIELD checkDigit: java.lang.String
+  FIELD code: java.lang.String
+  FIELD id: java.lang.String
+  FIELD name: java.lang.String
+  FIELD pattern: java.lang.String
+  FIELD prefix: java.lang.String
+  FIELD resetCycle: java.lang.String
+  FIELD sample: java.lang.String
+  FIELD seqLength: int
+  FIELD status: java.lang.String
+  FIELD step: int
+TYPE com.foundation.sync.api.dto.DiffItemView (record)
+  FIELD externalId: java.lang.String
+  FIELD fields: java.util.Map<java.lang.String, java.lang.Object>
+  FIELD kind: com.foundation.sync.api.dto.DiffKind
+  FIELD lockedFields: java.util.Set<java.lang.String>
+  FIELD objectType: com.foundation.sync.spi.SyncObjectType
+  FIELD parentExternalId: java.lang.String
+TYPE com.foundation.sync.api.dto.DiffKind (enum)
+  ENUM CREATE, DISABLE, MOVE, UPDATE
+TYPE com.foundation.sync.api.dto.DiffPreviewView (record)
+  FIELD capabilityMissing: boolean
+  FIELD created: int
+  FIELD disabled: int
+  FIELD items: java.util.List<com.foundation.sync.api.dto.DiffItemView>
+  FIELD moved: int
+  FIELD pauseReason: com.foundation.sync.api.dto.SyncPauseReason
+  FIELD paused: boolean
+  FIELD sourceId: java.lang.String
+  FIELD taskId: java.lang.String
+  FIELD updated: int
+TYPE com.foundation.sync.api.dto.FieldMappingView (record)
+  FIELD defaultValue: java.lang.String
+  FIELD externalField: java.lang.String
+  FIELD id: java.lang.String
+  FIELD internalField: java.lang.String
+  FIELD objectType: com.foundation.sync.spi.SyncObjectType
+  FIELD required: boolean
+  FIELD transform: java.lang.String
+TYPE com.foundation.sync.api.dto.PageResult (record) <T>
+  FIELD items: java.util.List<T>
+  FIELD page: int
+  FIELD size: int
+  FIELD total: long
+TYPE com.foundation.sync.api.dto.SyncAction (enum)
+  ENUM CREATE, DISABLE, ERROR, MOVE, SKIP, UPDATE
+TYPE com.foundation.sync.api.dto.SyncConflictType (enum)
+  ENUM AUTHORITY_CONFLICT, DUPLICATE_KEY, IDENTITY_AMBIGUOUS, LOCKED_FIELD
+TYPE com.foundation.sync.api.dto.SyncConflictView (record)
+  FIELD conflictType: com.foundation.sync.api.dto.SyncConflictType
+  FIELD createAt: java.time.Instant
+  FIELD detail: java.util.Map<java.lang.String, java.lang.Object>
+  FIELD externalId: java.lang.String
+  FIELD id: java.lang.String
+  FIELD objectType: com.foundation.sync.spi.SyncObjectType
+  FIELD resolved: boolean
+  FIELD resolvedBy: java.lang.String
+  FIELD sourceId: java.lang.String
+  FIELD taskId: java.lang.String
+TYPE com.foundation.sync.api.dto.SyncLogLevel (enum)
+  ENUM ERROR, INFO, WARN
+TYPE com.foundation.sync.api.dto.SyncLogView (record)
+  FIELD action: com.foundation.sync.api.dto.SyncAction
+  FIELD createAt: java.time.Instant
+  FIELD externalId: java.lang.String
+  FIELD id: java.lang.String
+  FIELD level: com.foundation.sync.api.dto.SyncLogLevel
+  FIELD message: java.lang.String
+  FIELD objectType: com.foundation.sync.spi.SyncObjectType
+  FIELD taskId: java.lang.String
+TYPE com.foundation.sync.api.dto.SyncMode (enum)
+  ENUM FULL, INCREMENTAL, PUSH, RECONCILE
+TYPE com.foundation.sync.api.dto.SyncPauseReason (enum)
+  ENUM THRESHOLD
+TYPE com.foundation.sync.api.dto.SyncSourceStatus (enum)
+  ENUM DISABLED, ENABLED
+TYPE com.foundation.sync.api.dto.SyncSourceView (record)
+  FIELD adapterImpl: java.lang.String
+  FIELD authority: boolean
+  FIELD capabilities: com.foundation.sync.spi.SourceCapabilities
+  FIELD code: java.lang.String
+  FIELD config: java.util.Map<java.lang.String, java.lang.Object>
+  FIELD credentialRef: java.lang.String
+  FIELD id: java.lang.String
+  FIELD name: java.lang.String
+  FIELD pluginSha256: java.lang.String
+  FIELD scheduleCron: java.lang.String
+  FIELD sourceType: java.lang.String
+  FIELD status: com.foundation.sync.api.dto.SyncSourceStatus
+  FIELD updatedAt: java.time.Instant
+TYPE com.foundation.sync.api.dto.SyncTaskStatus (enum)
+  ENUM FAILED, PARTIAL, PAUSED, RUNNING, SUCCEEDED
+TYPE com.foundation.sync.api.dto.SyncTaskView (record)
+  FIELD capabilityMissing: boolean
+  FIELD createBy: java.lang.String
+  FIELD createdCount: int
+  FIELD disabledCount: int
+  FIELD dryRun: boolean
+  FIELD finishedAt: java.time.Instant
+  FIELD id: java.lang.String
+  FIELD mode: com.foundation.sync.api.dto.SyncMode
+  FIELD movedCount: int
+  FIELD pauseReason: com.foundation.sync.api.dto.SyncPauseReason
+  FIELD sourceCode: java.lang.String
+  FIELD sourceId: java.lang.String
+  FIELD startedAt: java.time.Instant
+  FIELD status: com.foundation.sync.api.dto.SyncTaskStatus
+  FIELD triggerMode: com.foundation.sync.api.dto.SyncTriggerMode
+  FIELD updatedCount: int
+TYPE com.foundation.sync.api.dto.SyncTriggerMode (enum)
+  ENUM EVENT, MANUAL, SCHEDULED
+TYPE com.foundation.sync.scim.api.dto.ScimTokenView (record)
+  FIELD createAt: java.time.Instant
+  FIELD expiresAt: java.time.Instant
+  FIELD id: java.lang.String
+  FIELD lastUsedAt: java.time.Instant
+  FIELD name: java.lang.String
+  FIELD prefix: java.lang.String
+  FIELD scopes: java.lang.String
+  FIELD status: java.lang.String
+  FIELD token: java.lang.String
+TYPE com.foundation.sync.spi.IncrementalMode (enum)
+  ENUM CHANGE_NUMBER, EVENT_CALLBACK, FULL_ONLY, TIMESTAMP
+TYPE com.foundation.sync.spi.ProbeResult (record)
+  FIELD items: java.util.List<com.foundation.sync.spi.ProbeResult$ProbeItem>
+  FIELD reachable: boolean
+TYPE com.foundation.sync.spi.ProbeResult$ProbeItem (record)
+  FIELD message: java.lang.String
+  FIELD name: java.lang.String
+  FIELD ok: boolean
+TYPE com.foundation.sync.spi.SourceCapabilities (record)
+  FIELD incrementalModes: java.util.Set<com.foundation.sync.spi.IncrementalMode>
+  FIELD objects: java.util.Set<com.foundation.sync.spi.SyncObjectType>
+  FIELD providesExternalIdentity: boolean
+  FIELD supportsFieldConversion: boolean
+TYPE com.foundation.sync.spi.SyncObjectType (enum)
+  ENUM EMPLOYMENT, EXTERNAL_IDENTITY, JOB_GRADE, ORG_UNIT, PERSON, POSITION
