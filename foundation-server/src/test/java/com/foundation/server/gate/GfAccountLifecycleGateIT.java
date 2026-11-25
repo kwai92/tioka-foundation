@@ -421,14 +421,30 @@ class GfAccountLifecycleGateIT {
                 String.class, accountId);
     }
 
-    /** 登录名全局唯一且**不回收**（{@code uk_account_login_name}），故必须带唯一后缀。 */
+    /**
+     * 登录名全局唯一且**不回收**（{@code uk_account_login_name}），故必须带唯一后缀。
+     *
+     * <p><b>不能取 ULID 的前缀子串</b>：{@code Ids.newId} 返回 {@code prefix + "_" + 单调ULID}，
+     * 而单调 ULID 的**前 10 字符是毫秒时间戳**、后 16 字符才是随机位。初版写
+     * {@code substring(4, 14)} 取的正是时间戳段 → **同一毫秒内多次调用产生完全相同的字符串**，
+     * 撞唯一索引后 {@code AccountApplicationService.resolveLoginName} 抛「登录名已存在」。
+     * CI run（commit ad8444ae）实证：5 个用例里 2 个因此失败，且**报错栈落在
+     * {@code createPersonal}，形态上像 Keycloak 调用失败，实为测试造数不唯一**。
+     * 故改用**完整 ULID**（含随机位，天然唯一）并转小写——ULID 字符集是 Crockford base32
+     * （大写字母 + 数字），转小写后仍满足 {@code LoginNameRule.isValid} 的 ASCII 字母数字口径，
+     * 总长 6 + 26 = 32 < 128 上限。{@code substring(4)} 是剥掉 {@code "per_"} 前缀
+     * （{@code Ids.newId} = prefix + "_" + ULID，前缀 {@code per} 为 3 字符故下标 4 起为完整 ULID）。
+     */
     private String newLogin() {
-        return LOGIN_PREFIX + Ids.newId(OrgIdPrefix.PERSON).substring(4, 14).toLowerCase();
+        return LOGIN_PREFIX + Ids.newId(OrgIdPrefix.PERSON).substring(4).toLowerCase();
     }
 
-    /** 工号唯一（{@code UNIQUE (emp_no)}），故带序号 + 随机后缀。 */
+    /**
+     * 工号唯一（{@code UNIQUE (emp_no)}）。同 {@link #newLogin()} 的理由，必须用完整 ULID
+     * 随机位而非时间戳前缀，否则同一毫秒内造的多个人员会撞唯一索引。
+     */
     private String empNo(int seq) {
-        return EMP_PREFIX + seq + Ids.newId(OrgIdPrefix.PERSON).substring(4, 10);
+        return EMP_PREFIX + seq + Ids.newId(OrgIdPrefix.PERSON).substring(4).toLowerCase();
     }
 
     private String seedPerson(String empNo) {
