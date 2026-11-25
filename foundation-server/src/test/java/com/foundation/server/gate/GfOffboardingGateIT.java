@@ -295,7 +295,22 @@ class GfOffboardingGateIT {
      * 是接入方「收到即吊销本地令牌」的依据（F-11 §5 第 7 条）。两个事件缺任一个，
      * 下游的离职联动就断链，故都必须钉住。
      *
-     * <p>按 {@code aggregate=personId} 精确过滤（见类 javadoc 清理口径），避免读到别的闸门的事件。
+     * <p><b>两个事件的 {@code aggregate} 不同，必须分别查</b>（CI 实测纠正过的认知）：
+     * <ul>
+     *   <li>{@code fdn.person.disabled} 属**人员域**，{@code OrgEventOutbox.publish} 用
+     *       {@code payload.id()} 作 aggregate，而 {@code PersonDisabledEvent.payload(personId, …)}
+     *       → aggregate = <b>personId</b>；</li>
+     *   <li>{@code fdn.account.sessions_revoked} 属**账号域**，{@code AccountEventOutbox.publish}
+     *       同样用 {@code payload.id()}，但 {@code FdnAccountSessionsRevokedEvent.payload(accountId, version)}
+     *       → aggregate = <b>accountId</b>。</li>
+     * </ul>
+     * 初版按单一 {@code aggregate = personId} 查两个事件，结果只查得到前者
+     * （CI 报 {@code Expecting ["fdn.person.disabled"] to contain ["fdn.account.sessions_revoked"]}）。
+     * 这不是缺陷而是**契约本身**：两个域各自以自己聚合根为主键发事件，接入方要分别按
+     * personId / accountId 关联。故本用例把该差异<b>显式钉住</b>——按各自 aggregate 查得到，
+     * 并断言 sessions_revoked 的 aggregate 确实是 accountId 而非 personId。
+     *
+     * <p>仍按本闸门专属 ID 过滤（见类 javadoc 清理口径），避免读到别的闸门的事件。
      */
     @Test
     void offboardEmitsPersonDisabledAndSessionsRevokedEvents() {
@@ -304,27 +319,49 @@ class GfOffboardingGateIT {
         String personId = seedPerson(empNo(3));
         String login = loginName(3);
         keycloakUsernames.add(login);
-        accounts.createPersonal(new AccountCreateCmd(personId, login, OPERATOR));
+        String accountId = accounts.createPersonal(new AccountCreateCmd(personId, login, OPERATOR));
 
         offboarding.offboard(personId, OPERATOR);
 
-        List<String> eventTypes = jdbc.queryForList(
+        // 人员域事件：aggregate = personId
+        List<String> personEvents = jdbc.queryForList(
                 "SELECT event_type FROM fdn_outbox WHERE aggregate = ? ORDER BY create_at",
                 String.class, personId);
-        assertThat(eventTypes)
-                .as("离职必须发出 fdn.person.disabled（下游记忆清理与 Tioka 令牌吊销的唯一触发源）")
+        assertThat(personEvents)
+                .as("离职必须发出 fdn.person.disabled（下游记忆清理与 Tioka 令牌吊销的唯一触发源），"
+                        + "其 aggregate 是人员域的 personId")
                 .contains("fdn.person.disabled");
-        assertThat(eventTypes)
-                .as("账号停用连带吊销会话必须发出 fdn.account.sessions_revoked（接入方据此吊销本地令牌）")
-                .contains("fdn.account.sessions_revoked");
 
-        // 事件体经 JSONB 往返后仍带得出 personId：接入方要靠它定位是谁离职，写错则下游静默不生效
-        String payload = jdbc.queryForObject(
+        // 账号域事件：aggregate = accountId（不是 personId，两个域各以自己的聚合根发事件）
+        List<String> accountEvents = jdbc.queryForList(
+                "SELECT event_type FROM fdn_outbox WHERE aggregate = ? ORDER BY create_at",
+                String.class, accountId);
+        assertThat(accountEvents)
+                .as("账号停用连带吊销会话必须发出 fdn.account.sessions_revoked（接入方据此吊销本地令牌），"
+                        + "其 aggregate 是账号域的 accountId")
+                .contains("fdn.account.sessions_revoked");
+        assertThat(personEvents)
+                .as("契约钉住：sessions_revoked 属账号域，不应出现在 personId 的事件流里")
+                .doesNotContain("fdn.account.sessions_revoked");
+
+        // 事件体经 JSONB 往返后仍带得出 ID：接入方要靠它定位是谁离职 / 哪个账号被吊销，
+        // 写错则下游静默不生效
+        String personPayload = jdbc.queryForObject(
                 "SELECT payload::text FROM fdn_outbox WHERE aggregate = ? AND event_type = 'fdn.person.disabled'",
                 String.class, personId);
-        assertThat(payload)
+        assertThat(personPayload)
                 .as("fdn.person.disabled 的事件体必须含 personId，否则消费方无法定位离职人员")
                 .contains(personId);
+        assertThat(personPayload)
+                .as("离职（而非普通停用）必须标出 changeType=LEFT，下游据此区分离职与下岗")
+                .contains("LEFT");
+        String accountPayload = jdbc.queryForObject(
+                "SELECT payload::text FROM fdn_outbox WHERE aggregate = ? "
+                        + "AND event_type = 'fdn.account.sessions_revoked'",
+                String.class, accountId);
+        assertThat(accountPayload)
+                .as("fdn.account.sessions_revoked 的事件体必须含 accountId，否则消费方无法定位被吊销的账号")
+                .contains(accountId);
     }
 
     // ---------------------------------------------------------------- 覆盖自证
