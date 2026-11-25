@@ -2,7 +2,10 @@ package com.foundation.sync.adapter.ldap;
 
 import com.foundation.common.api.error.BizException;
 import com.foundation.common.api.error.ErrorCode;
+import com.foundation.sync.spi.CredentialResolver;
 import com.foundation.sync.spi.SyncCredentialsRef;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.naming.Context;
 import javax.naming.NameNotFoundException;
@@ -35,10 +38,13 @@ import java.util.Optional;
  * （{@link PagedResultsControl}）循环拉取；绑定失败/超时按 {@code maxRetries}/{@code backoffMs}
  * 指数退避重试，最终失败包成 {@link BizException}（{@link ErrorCode#INTERNAL}）。
  *
- * <p>凭证：{@link #authenticate(SyncCredentialsRef)} 记录引用；真实明文应经 ADR-042 的密钥来源解析，
- * 当前实现以 {@link LdapProperties#getBindPassword()} 占位（见 TODO）。
+ * <p>凭证（ADR-042）：{@link #authenticate(SyncCredentialsRef)} 按 {@code credential_ref}
+ * 经 {@link CredentialResolver} 解析绑定口令；未装载解析器或未配置引用时回落
+ * {@link LdapProperties#getBindPassword()} 明文并告警。解析失败即抛 {@link BizException}，不回落。
  */
 public class JndiLdapClient implements LdapApiClient {
+
+    private static final Logger log = LoggerFactory.getLogger(JndiLdapClient.class);
 
     private static final String LDAP_CTX_FACTORY = "com.sun.jndi.ldap.LdapCtxFactory";
     private static final String CONNECT_TIMEOUT = "com.sun.jndi.ldap.connect.timeout";
@@ -49,17 +55,64 @@ public class JndiLdapClient implements LdapApiClient {
             DateTimeFormatter.ofPattern("yyyyMMddHHmmss'Z'").withZone(ZoneOffset.UTC);
 
     private final LdapProperties properties;
+    /** 凭证解析器（ADR-042）；{@code null} 表示运行环境未装载，此时只能回落明文配置。 */
+    private final CredentialResolver credentialResolver;
 
-    private volatile SyncCredentialsRef credentials;
+    /** {@link #authenticate} 解析出的绑定口令；未解析时为 {@code null}。 */
+    private volatile String resolvedBindPassword;
 
+    /** 兼容构造器：未注入解析器时只能使用明文 {@code bindPassword} 配置（本地联调用）。 */
     public JndiLdapClient(LdapProperties properties) {
+        this(properties, null);
+    }
+
+    public JndiLdapClient(LdapProperties properties, CredentialResolver resolver) {
         this.properties = properties;
+        this.credentialResolver = resolver;
     }
 
     @Override
     public void authenticate(SyncCredentialsRef credentials) {
-        this.credentials = credentials;
-        // TODO(ADR-042): 经 credential_ref 解析绑定口令；当前以 properties.getBindPassword() 占位。
+        this.resolvedBindPassword = resolveBindPassword(credentials);
+    }
+
+    /**
+     * 解析绑定口令（ADR-042）：有 {@code credential_ref} 且装载了解析器 → 取密文明文；
+     * 否则回落 {@code properties.bindPassword} 并告警。
+     *
+     * <p><b>解析失败不回落明文</b>：格式非法或密钥不存在直接抛 {@link BizException}，让认证阶段
+     * 立即失败。
+     *
+     * <p><b>同时修掉一个既有缺陷</b>：改造前本方法缺失，{@link #environment()} 在明文口令为空时
+     * 直接把 {@code credentials.secretRef()}（形如 {@code secret://foundation/ldap-bind}）
+     * 当作密码塞进 {@code SECURITY_CREDENTIALS}——即**把引用字符串当口令用**，
+     * 必然绑定失败且报错信息看不出原因。现由本方法解析，{@code environment()} 只取解析结果。
+     */
+    private String resolveBindPassword(SyncCredentialsRef ref) {
+        String secretRef = ref == null ? null : ref.secretRef();
+        boolean hasRef = secretRef != null && !secretRef.isBlank();
+        if (hasRef && credentialResolver != null && credentialResolver.supports(secretRef)) {
+            return credentialResolver.resolve(secretRef);
+        }
+        String fallback = properties.getBindPassword();
+        if (hasRef && credentialResolver == null) {
+            log.warn("LDAP 凭证引用已配置（{}）但未装载 CredentialResolver，"
+                    + "回落明文 bindPassword 配置；生产环境请确认 foundation-sync-biz 已装配", secretRef);
+        } else if (!hasRef) {
+            log.warn("LDAP 未配置 credential_ref（fdn_sync_source.credential_ref），"
+                    + "使用明文 foundation.sync.adapter.ldap.bind-password；"
+                    + "明文凭证仅限本地联调，生产必须改为 secret:// 引用（ADR-042）");
+        }
+        return fallback;
+    }
+
+    /**
+     * 当前生效的绑定口令：{@link #authenticate} 已解析则用解析值（含引用解析或回落明文），
+     * 尚未认证时退回明文配置，保证「未走 authenticate 的直接调用」不回归。
+     */
+    private String bindPassword() {
+        String resolved = resolvedBindPassword;
+        return resolved != null ? resolved : properties.getBindPassword();
     }
 
     @Override
@@ -153,7 +206,14 @@ public class JndiLdapClient implements LdapApiClient {
                 + (last == null ? "unknown" : last.getMessage()));
     }
 
-    private Hashtable<String, Object> environment() {
+    /**
+     * 组装 JNDI 环境。包级可见以便离线断言凭证装配结果（纯函数，不建连接）。
+     *
+     * <p><b>安全不变式</b>：{@link Context#SECURITY_CREDENTIALS} 只接受**解析后的明文口令**，
+     * 绝不接受 {@code secret://…} 引用原文——改造前此处有 {@code else if} 分支会把引用字符串
+     * 当口令塞入，必然绑定失败且报错看不出原因。由 {@code JndiLdapClientTest} 锁定该不变式。
+     */
+    Hashtable<String, Object> environment() {
         Hashtable<String, Object> env = new Hashtable<>();
         env.put(Context.INITIAL_CONTEXT_FACTORY, LDAP_CTX_FACTORY);
         env.put(Context.PROVIDER_URL, properties.getUrl());
@@ -161,11 +221,9 @@ public class JndiLdapClient implements LdapApiClient {
         if (properties.getBindDn() != null && !properties.getBindDn().isBlank()) {
             env.put(Context.SECURITY_PRINCIPAL, properties.getBindDn());
         }
-        String password = properties.getBindPassword();
+        String password = bindPassword();
         if (password != null && !password.isEmpty()) {
             env.put(Context.SECURITY_CREDENTIALS, password);
-        } else if (credentials != null && credentials.secretRef() != null) {
-            env.put(Context.SECURITY_CREDENTIALS, credentials.secretRef());
         }
         env.put(CONNECT_TIMEOUT, "5000");
         env.put(READ_TIMEOUT, "5000");

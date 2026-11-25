@@ -3,6 +3,7 @@ package com.foundation.sync.config;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import com.foundation.common.api.event.EventProperties;
 import com.foundation.common.api.event.OutboxAppender;
+import com.foundation.common.api.param.ParamApi;
 import com.foundation.sync.api.FieldMappingController;
 import com.foundation.sync.api.LocalLockApi;
 import com.foundation.sync.api.LocalLockController;
@@ -31,6 +32,7 @@ import com.foundation.sync.infrastructure.MybatisSyncLogRepository;
 import com.foundation.sync.infrastructure.MybatisSyncSourceRepository;
 import com.foundation.sync.infrastructure.MybatisSyncTaskRepository;
 import com.foundation.sync.infrastructure.NoopSyncLedgerWriter;
+import com.foundation.sync.infrastructure.ParamCredentialResolver;
 import com.foundation.sync.infrastructure.SyncConflictRepository;
 import com.foundation.sync.infrastructure.SyncEventOutbox;
 import com.foundation.sync.infrastructure.SyncFieldMappingRepository;
@@ -47,6 +49,7 @@ import com.foundation.sync.infrastructure.mapper.SyncPersonMapper;
 import com.foundation.sync.infrastructure.mapper.SyncPositionMapper;
 import com.foundation.sync.infrastructure.mapper.SyncSourceMapper;
 import com.foundation.sync.infrastructure.mapper.SyncTaskMapper;
+import com.foundation.sync.spi.CredentialResolver;
 import com.foundation.sync.spi.FieldConverter;
 import com.foundation.sync.spi.SyncSourceAdapter;
 import org.apache.ibatis.session.SqlSessionFactory;
@@ -163,6 +166,22 @@ public class SyncAutoConfiguration {
     @ConditionalOnMissingBean
     public AdapterRegistry adapterRegistry(List<SyncSourceAdapter> adapters, SyncProperties properties) {
         return new AdapterRegistry(adapters, properties);
+    }
+
+    /**
+     * 凭证解析器（ADR-042 §1.6 / §7 F16）：把 {@code credential_ref} 解析为明文，复用参数中心
+     * {@link ParamApi#secretValue} 的 AES-256-GCM 解密，不新增第二套加密设施。
+     *
+     * <p>{@code @ConditionalOnBean(ParamApi.class)}：当公共域被关（{@code foundation.server.domains.common=false}）
+     * 而 sync 仍启用时，{@link ParamApi} 缺失，此时**不注册**解析器——各适配器按「未装载解析器」回落明文并告警，
+     * 而不是让整个 sync 域启动失败。本类已 {@code @AutoConfigureAfter} 公共域自动装配，故此处条件可稳定求值。
+     * 适配器侧只依赖 SPI 接口 {@link CredentialResolver}，不依赖本 {@code -biz}（ADR-078 第 8 条）。
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnBean(ParamApi.class)
+    public CredentialResolver credentialResolver(ParamApi paramApi) {
+        return new ParamCredentialResolver(paramApi);
     }
 
     @Bean

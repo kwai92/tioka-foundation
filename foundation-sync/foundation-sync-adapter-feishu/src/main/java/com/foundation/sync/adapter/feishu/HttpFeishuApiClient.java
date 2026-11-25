@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.foundation.common.api.error.BizException;
 import com.foundation.common.api.error.ErrorCode;
+import com.foundation.sync.spi.CredentialResolver;
 import com.foundation.sync.spi.Page;
 import com.foundation.sync.spi.PageCursor;
 import com.foundation.sync.spi.SyncCredentialsRef;
@@ -15,6 +16,8 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -32,6 +35,8 @@ import java.util.Optional;
  */
 public class HttpFeishuApiClient implements FeishuApiClient {
 
+    private static final Logger log = LoggerFactory.getLogger(HttpFeishuApiClient.class);
+
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
     private static final String DEPARTMENT_ID_TYPE = "open_department_id";
     private static final String USER_ID_TYPE = "open_id";
@@ -39,14 +44,23 @@ public class HttpFeishuApiClient implements FeishuApiClient {
     private final FeishuProperties properties;
     private final OkHttpClient httpClient;
     private final ObjectMapper objectMapper;
+    /** 凭证解析器（ADR-042）；{@code null} 表示运行环境未装载，此时只能回落明文配置。 */
+    private final CredentialResolver credentialResolver;
 
     private final Object tokenLock = new Object();
-    private volatile SyncCredentialsRef credentials;
+    /** {@link #authenticate} 解析出的 app_secret；未解析时为 {@code null}。 */
+    private volatile String resolvedAppSecret;
     private volatile String tenantAccessToken;
     private volatile long tokenExpireAtMillis;
 
+    /** 兼容构造器：未注入解析器时只能使用明文 {@code appSecret} 配置（本地联调用）。 */
     public HttpFeishuApiClient(FeishuProperties properties) {
+        this(properties, null);
+    }
+
+    public HttpFeishuApiClient(FeishuProperties properties, CredentialResolver resolver) {
         this.properties = properties;
+        this.credentialResolver = resolver;
         this.httpClient = new OkHttpClient.Builder()
                 .connectTimeout(Duration.ofSeconds(10))
                 .readTimeout(Duration.ofSeconds(30))
@@ -57,13 +71,36 @@ public class HttpFeishuApiClient implements FeishuApiClient {
 
     @Override
     public void authenticate(SyncCredentialsRef credentials) {
-        this.credentials = credentials;
-        // TODO ADR-042: 通过 CredentialCipher / CredentialApi 按 credentials.secretRef() 解析 app_secret，
-        //  当前先取配置占位值（properties.appId / properties.appSecret），密钥来源接入后替换此处。
+        this.resolvedAppSecret = resolveSecret(credentials);
         synchronized (tokenLock) {
             this.tenantAccessToken = null;
             this.tokenExpireAtMillis = 0L;
         }
+    }
+
+    /**
+     * 解析 app_secret（ADR-042）：有 {@code credential_ref} 且装载了解析器 → 取密文明文；
+     * 否则回落 {@code properties.appSecret} 并告警。
+     *
+     * <p>**解析失败不回落明文**：格式非法或密钥不存在直接抛 {@link BizException}，让认证阶段
+     * 立即失败。回落会把配置错误伪装成「飞书返回 401」，定位成本高得多。
+     */
+    private String resolveSecret(SyncCredentialsRef ref) {
+        String secretRef = ref == null ? null : ref.secretRef();
+        boolean hasRef = secretRef != null && !secretRef.isBlank();
+        if (hasRef && credentialResolver != null && credentialResolver.supports(secretRef)) {
+            return credentialResolver.resolve(secretRef);
+        }
+        String fallback = properties.getAppSecret();
+        if (hasRef && credentialResolver == null) {
+            log.warn("飞书凭证引用已配置（{}）但未装载 CredentialResolver，"
+                    + "回落明文 appSecret 配置；生产环境请确认 foundation-sync-biz 已装配", secretRef);
+        } else if (!hasRef) {
+            log.warn("飞书未配置 credential_ref（fdn_sync_source.credential_ref），"
+                    + "使用明文 foundation.sync.adapter.feishu.app-secret；"
+                    + "明文凭证仅限本地联调，生产必须改为 secret:// 引用（ADR-042）");
+        }
+        return fallback;
     }
 
     @Override
@@ -152,6 +189,19 @@ public class HttpFeishuApiClient implements FeishuApiClient {
 
     // ---------- 内部：token ----------
 
+    /**
+     * 当前生效的 app_secret：{@link #authenticate} 已解析则用解析值（含引用解析或回落明文），
+     * 尚未认证时退回明文配置，保证「未走 authenticate 的直接调用」不回归。
+     *
+     * <p>包级可见以便离线断言（不发网络请求）。**安全不变式**：返回值只能是明文密钥，
+     * 绝不能是 {@code secret://…} 引用原文——否则会把引用字符串当 app_secret 发给飞书，
+     * 得到难以定位的 401。由 {@code HttpFeishuApiClientTest} 锁定。
+     */
+    String appSecret() {
+        String resolved = resolvedAppSecret;
+        return resolved != null ? resolved : properties.getAppSecret();
+    }
+
     private void ensureToken() {
         if (tenantAccessToken != null && System.currentTimeMillis() < tokenExpireAtMillis) {
             return;
@@ -162,7 +212,7 @@ public class HttpFeishuApiClient implements FeishuApiClient {
             }
             ObjectNode payload = objectMapper.createObjectNode();
             payload.put("app_id", properties.getAppId());
-            payload.put("app_secret", properties.getAppSecret());
+            payload.put("app_secret", appSecret());
             HttpUrl url = base()
                     .addPathSegments("open-apis/auth/v3/tenant_access_token/internal")
                     .build();
