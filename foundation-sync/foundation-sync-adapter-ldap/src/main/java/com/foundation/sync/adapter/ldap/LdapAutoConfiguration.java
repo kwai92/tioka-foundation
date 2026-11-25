@@ -1,5 +1,7 @@
 package com.foundation.sync.adapter.ldap;
 
+import com.foundation.sync.spi.CredentialResolver;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -19,8 +21,12 @@ public class LdapAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public JndiLdapClient ldapApiClient(LdapProperties properties) {
-        return new JndiLdapClient(properties);
+    public JndiLdapClient ldapApiClient(LdapProperties properties,
+                                        ObjectProvider<CredentialResolver> credentialResolver) {
+        // ADR-042：解析器由 foundation-sync-biz 提供（复用 ParamApi 解密）。以 ObjectProvider 注入，
+        // 使「仅装载本适配器插件、未装载 sync-biz」的场景仍能启动（回落明文并告警），
+        // 且不违反 ADR-078 第 8 条（适配器只依赖 SPI 与 -api 契约，不依赖 -biz）。
+        return new JndiLdapClient(properties, credentialResolver.getIfAvailable());
     }
 
     @Bean
