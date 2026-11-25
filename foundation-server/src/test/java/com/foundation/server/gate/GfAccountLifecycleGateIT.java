@@ -44,10 +44,14 @@ import static org.assertj.core.api.Assertions.assertThat;
  * {@code FoundationApplication} + PostgreSQL + **真实 Keycloak 容器**，验的是算法之下那层
  * stub 碰不到的东西：
  * <ul>
- *   <li>{@code AccountPushService.push} 是**异步**的（只写 {@code fdn_account_push} 待发记录），
- *       真正调 Keycloak 在 {@code flushDue}。本闸门据此断言「停用后 Keycloak 侧真的变
- *       {@code enabled=false}」，即**异步推送链路端到端接通**——这是 F-04 §5「Foundation 不存口令、
- *       生命周期动作以 Keycloak 为准」的实际兑现，内存 stub 完全测不到；</li>
+ *   <li>{@code AccountPushService.push} 是**同步优先 + 失败降级入队**的：javadoc 明写「立即推送；
+ *       成功返回 {@code true}，失败写入待发记录并返回 {@code false}（对账任务兜底重试）」，
+ *       实现是先 {@code apply(...)}（真调 Keycloak），仅抛 {@code RuntimeException} 时才
+ *       {@code pushes.insert(pending)}；且 {@code createUser} 成功后**同步**回写
+ *       {@code keycloak_user_id}。本闸门据此断言「{@code createPersonal} 返回后真实 Keycloak 里
+ *       即有该用户、{@code keycloak_user_id} 已回写、待发队列为空」，即**同步推送链路端到端接通**
+ *       ——这是 F-04 §5「Foundation 不存口令、生命周期动作以 Keycloak 为准」的实际兑现，
+ *       内存 stub 完全测不到；</li>
  *   <li>「人为改 Keycloak」用的是**真实 Admin API 写真实 Keycloak**（{@code keycloak.setEnabled(...)}），
  *       再由 {@code AccountReconcileJob.reconcileOnce()} 从**真实 Keycloak 分页拉全量**
  *       （{@code listUsers()}）比对并回正。整条「读真 Keycloak → 比对 → 写真 Keycloak」回路
@@ -184,8 +188,14 @@ class GfAccountLifecycleGateIT {
      * 「对账修复」都无从谈起。把它单列一条用例，是为了在前提失败时给出明确信号，
      * 而不是让后面两条以「Keycloak 里找不到用户」这种间接形态失败。
      *
-     * <p>注意 {@code push} 是异步的（只写待发记录），故必须显式 {@code flushDue} 才会真调 Keycloak。
-     * 「不 flush 就查不到用户」本身也是本用例要钉住的语义——它证明推送确实走待发队列而非同步直连。
+     * <p><b>推送是「同步优先 + 失败降级入队」，不是纯异步</b>（本闸门在 CI 上实测纠正过的认知）：
+     * {@code AccountPushService.push} 的 javadoc 明写「立即推送；成功返回 {@code true}，
+     * 失败写入待发记录并返回 {@code false}（对账任务兜底重试）」，实现是先
+     * {@code apply(...)}（真调 Keycloak），仅在抛 {@code RuntimeException} 时才
+     * {@code pushes.insert(pending)}。且 {@code createUser} 成功后**同步**
+     * {@code accounts.update(account.withKeycloakUserId(...))} 回写 Keycloak 用户 ID。
+     * 故 {@code createPersonal} 返回时：Keycloak 用户已存在、{@code keycloak_user_id} 已回写、
+     * 待发队列为空。{@link #flushPushes()} 因此只是**兜底**（正常路径下无待发记录）。
      */
     @Test
     void createPersonalAccountPushesUserToRealKeycloak() {
@@ -193,30 +203,26 @@ class GfAccountLifecycleGateIT {
         String personId = seedPerson(empNo(1));
         String accountId = accounts.createPersonal(new AccountCreateCmd(personId, login, OPERATOR));
 
-        // 未 flush 前：账号已落库，但 Keycloak 用户尚未创建，keycloak_user_id 为空
+        // 同步推送语义：createPersonal 返回时，真实 Keycloak 里就应能查到该用户
         assertThat(accounts.findById(accountId)).isPresent();
-        assertThat(keycloak.findByUsername(login))
-                .as("推送是异步的：未 flush 前 Keycloak 里不应有该用户")
-                .isNull();
-        assertThat(keycloakUserIdOf(accountId))
-                .as("未 flush 前 keycloak_user_id 应为空")
-                .isNull();
-
-        flushPushes();
-
         KeycloakUserView created = keycloak.findByUsername(login);
         assertThat(created)
-                .as("flush 后真实 Keycloak 里必须能查到该用户")
+                .as("推送是同步优先的：createPersonal 返回后真实 Keycloak 里即应能查到该用户")
                 .isNotNull();
         assertThat(created.enabled())
                 .as("新开通账号在 Keycloak 侧应可登录")
                 .isTrue();
-        assertThat(keycloakUserIdOf(accountId))
-                .as("推送成功后必须回写 keycloak_user_id，否则后续停用/改密/吊销会话都找不到人")
-                .isEqualTo(created.id());
         assertThat(created.requiredActions())
                 .as("开通时应带上配置的必需动作（默认首次改密 UPDATE_PASSWORD）")
                 .contains("UPDATE_PASSWORD");
+
+        // 同步推送成功 → keycloak_user_id 已回写，且**不产生待发记录**
+        assertThat(keycloakUserIdOf(accountId))
+                .as("createUser 成功后必须同步回写 keycloak_user_id，否则后续停用/改密/吊销会话都找不到人")
+                .isEqualTo(created.id());
+        assertThat(pendingPushCount(accountId))
+                .as("同步推送成功时不应留下待发记录（否则说明降级入队被误触发）")
+                .isEqualTo(0);
     }
 
     // ---------------------------------------------------------------- ② 停用后 Keycloak 登录失败
@@ -269,46 +275,51 @@ class GfAccountLifecycleGateIT {
      * 而非改内存快照——这样 {@code AccountReconcileJob} 必须真的从 Keycloak 分页拉全量
      * （{@code listUsers()}）、真的比对、真的回写，整条回路都被覆盖。
      *
-     * <p>三类漂移各造一例（{@code ENABLED_MISMATCH} / {@code USERNAME_MISMATCH} /
-     * {@code REQUIRED_ACTIONS_MISMATCH}），因为 {@code applyFix} 是 switch 分支，
-     * 只测一类会让另外两类的修复路径处于零覆盖——而它们的修复动作各不相同
-     * （{@code setEnabled} / {@code setUsername} / {@code setRequiredActions}）。
+     * <p><b>只造两类漂移（{@code ENABLED_MISMATCH} / {@code REQUIRED_ACTIONS_MISMATCH}），
+     * 刻意不造 {@code USERNAME_MISMATCH}</b>——后者在当前部署下**不可达**，实测依据：
+     * <ul>
+     *   <li>Keycloak 侧：测试 realm（{@code deploy/init/foundation-realm.json}）**没有**
+     *       {@code editUsernameAllowed}，缺省即 {@code false}（username 只读）。故
+     *       {@code KeycloakUserAdminImpl.setUsername} 必然抛
+     *       {@code HTTP 400 error-user-attribute-read-only}——CI run（commit 53d5a416）实证。
+     *       即**任何人都无法在 Keycloak 侧改 username**，这类漂移产生不出来。</li>
+     *   <li>Foundation 侧：{@code fdn_account.login_name} 的 DDL 注释是「全局唯一，**不回收**」，
+     *       且 {@code Account} domain 只有 {@code withStatus} 与 {@code withKeycloakUserId}，
+     *       **没有 {@code withLoginName}**，{@code AccountApplicationService} 也无改名入口。</li>
+     * </ul>
+     * 两侧都不可变 ⇒ 该漂移无法产生。因此 {@code applyFix} 的 {@code USERNAME_MISMATCH} 分支是
+     * 为「万一 realm 开了 editUsernameAllowed」准备的**防御分支**，不是缺陷，
+     * 也不该用「人为制造一个真实环境不可能出现的状态」去测它（那会得到一个只在测试里成立的断言）。
+     * 该分支的算法已由 {@code ReconcileDiffTest.detectsEnabledAndUsernameAndRequiredActionsDrift} 覆盖。
+     *
+     * <p>剩余两类漂移各造一例（修复动作分别是 {@code setEnabled} 与 {@code setRequiredActions}），
+     * 因为 {@code applyFix} 是 switch 分支，只测一类会让另一类的修复路径零覆盖。
      */
     @Test
     void reconcileDetectsAndFixesManualKeycloakDrift() {
-        // 三个账号，各制造一类漂移
+        // 两个账号，各制造一类**真实可达**的漂移
         String driftEnabled = newLogin();
-        String driftUsername = newLogin();
         String driftActions = newLogin();
         String enabledAccountId = accounts.createPersonal(
                 new AccountCreateCmd(seedPerson(empNo(3)), driftEnabled, OPERATOR));
-        String usernameAccountId = accounts.createPersonal(
-                new AccountCreateCmd(seedPerson(empNo(4)), driftUsername, OPERATOR));
         String actionsAccountId = accounts.createPersonal(
-                new AccountCreateCmd(seedPerson(empNo(5)), driftActions, OPERATOR));
+                new AccountCreateCmd(seedPerson(empNo(4)), driftActions, OPERATOR));
         flushPushes();
 
         String enabledKcId = requireKeycloakUserId(enabledAccountId);
-        String usernameKcId = requireKeycloakUserId(usernameAccountId);
         String actionsKcId = requireKeycloakUserId(actionsAccountId);
 
         // 人为改动 1：把可登录账号在 Keycloak 侧停用（Foundation 侧仍是 NORMAL）
         keycloak.setEnabled(enabledKcId, false);
-        // 人为改动 2：把登录名改成别的（Foundation 侧仍是原登录名）
-        String tamperedUsername = driftUsername + "-tampered";
-        keycloak.setUsername(usernameKcId, tamperedUsername);
-        // 人为改动 3：清空必需动作（Foundation 侧期望 UPDATE_PASSWORD）
+        // 人为改动 2：清空必需动作（Foundation 侧期望 UPDATE_PASSWORD）
         keycloak.setRequiredActions(actionsKcId, List.of());
 
         // 前置自证：漂移确实存在于真实 Keycloak，否则后面的「已修复」可能是「本来就没坏」的假绿
         assertThat(keycloak.findUser(enabledKcId).enabled())
                 .as("前置：漂移 1 应已生效")
                 .isFalse();
-        assertThat(keycloak.findUser(usernameKcId).username())
-                .as("前置：漂移 2 应已生效")
-                .isEqualTo(tamperedUsername);
         assertThat(keycloak.findUser(actionsKcId).requiredActions())
-                .as("前置：漂移 3 应已生效")
+                .as("前置：漂移 2 应已生效")
                 .isEmpty();
 
         AccountReconcileRecord record = reconcileJob.reconcileOnce();
@@ -320,21 +331,18 @@ class GfAccountLifecycleGateIT {
                 .as("本类已把 drift-threshold-percent 置 0，不应走「超阈值暂停修复」分支")
                 .isFalse();
         assertThat(record.drifted())
-                .as("三类人为漂移都应被发现")
-                .isGreaterThanOrEqualTo(3);
+                .as("两类人为漂移都应被发现")
+                .isEqualTo(2);
         assertThat(record.fixed())
-                .as("三类漂移都应被修复（MISSING_IN_KEYCLOAK 不可就地修，但本例没有该类漂移）")
-                .isGreaterThanOrEqualTo(3);
+                .as("两类漂移都应被修复（若 fixed < drifted，说明 applyFix 抛了异常被 warn 吞掉）")
+                .isEqualTo(2);
 
         // 回正后与 Foundation 侧一致
         assertThat(keycloak.findUser(enabledKcId).enabled())
                 .as("漂移 1 应被回正为可登录（以 Foundation 的 NORMAL 为准）")
                 .isTrue();
-        assertThat(keycloak.findUser(usernameKcId).username())
-                .as("漂移 2 应被回正为 Foundation 侧登录名")
-                .isEqualTo(driftUsername);
         assertThat(keycloak.findUser(actionsKcId).requiredActions())
-                .as("漂移 3 应被回正为配置的必需动作")
+                .as("漂移 2 应被回正为配置的必需动作")
                 .contains("UPDATE_PASSWORD");
     }
 
@@ -399,15 +407,27 @@ class GfAccountLifecycleGateIT {
     // ---------------------------------------------------------------- 造数与工具
 
     /**
-     * 推送是异步的（{@code push} 只写待发记录），必须显式 flush 才会真调 Keycloak。
+     * 兜底 flush 待发推送记录。
      *
-     * <p><b>刻意直接调 {@code AccountPushService.flushDue}，而不经 {@code reconcileOnce()} 触发</b>：
+     * <p><b>正常路径下这是 no-op</b>：{@code push} 是同步优先的（见
+     * {@link #createPersonalAccountPushesUserToRealKeycloak()} 的 javadoc），成功即直接调完 Keycloak，
+     * 只有抛异常才降级入队。保留本方法是为了让「同步推送恰好失败」时闸门仍能推进而不是莫名超时。
+     *
+     * <p>刻意直接调 {@code AccountPushService.flushDue}，而**不经 {@code reconcileOnce()} 触发**：
      * 后者末尾虽也会 flush，但它同时会**追加一条对账记录**，那会让
      * {@link #eachReconcileRunPersistsAnAuditRecord()} 里「两轮对账 = 两条记录」的断言变成三条而失败，
-     * 且失败信息（记录条数不对）完全指不到真因。limit 取足够大以覆盖本闸门造的记录。
+     * 且失败信息（记录条数不对）完全指不到真因。
      */
     private void flushPushes() {
         pushService.flushDue(200);
+    }
+
+    /** 某账号当前处于 PENDING 的推送记录数（用于断言同步推送成功时未降级入队）。 */
+    private int pendingPushCount(String accountId) {
+        Integer count = jdbc.queryForObject(
+                "SELECT count(*) FROM fdn_account_push WHERE account_id = ? AND status = 'PENDING'",
+                Integer.class, accountId);
+        return count == null ? 0 : count;
     }
 
     private String requireKeycloakUserId(String accountId) {
