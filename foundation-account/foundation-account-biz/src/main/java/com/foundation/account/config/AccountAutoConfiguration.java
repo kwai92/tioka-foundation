@@ -70,7 +70,14 @@ import java.time.Duration;
 @ConditionalOnProperty(prefix = "foundation.server.domains", name = "account", havingValue = "true", matchIfMissing = true)
 @AutoConfigureAfter(name = {
         "com.foundation.starter.data.config.FoundationDataAutoConfiguration",
-        "com.foundation.common.config.CommonAutoConfiguration"})
+        "com.foundation.common.config.CommonAutoConfiguration",
+        // StringRedisTemplate 由 Spring Boot 的 RedisAutoConfiguration 提供，而本类的
+        // @ConditionalOnBean 要求它存在。@ConditionalOnBean 是**顺序敏感**的：若本类先于
+        // RedisAutoConfiguration 被评估，StringRedisTemplate 尚未注册 → 条件不满足 →
+        // 整个账号域（开通/停用/对账/离职联动）静默不装配，且失败形态是
+        // 「No qualifying bean of type AccountApi」，完全指不到真因。
+        // 由 GfAccountLifecycleGateIT 在 CI 上暴露（gate job 首次让账号域进 Spring 上下文）。
+        "org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration"})
 @ConditionalOnBean({SqlSessionFactory.class, OutboxAppender.class, EventProperties.class,
         KeycloakUserAdmin.class, StringRedisTemplate.class})
 @EnableConfigurationProperties({AccountProperties.class, OffboardingProperties.class})
