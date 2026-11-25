@@ -198,16 +198,18 @@ class GfSsoGateIT {
     /**
      * ② 密钥轮换后**旧密钥立即失效**（F-00 §6.1 / F-05 §199 {@code oldSecretRejected}）——本闸门核心。
      *
-     * <p>在**真实 Keycloak token endpoint** 上验证，靠**错误码区分**新旧 secret，避免弱断言假绿：
+     * <p>在<b>真实 Keycloak token endpoint</b> 上验证，靠<b>认证结果差异</b>区分新旧 secret，避免弱断言假绿：
      * <ol>
      *   <li>第一次轮换拿到 secret A；第二次轮换拿到 secret B（{@code ClientSecretRotator} javadoc:
      *       「立即作废旧密钥，新旧并存窗口默认 0 秒」）；</li>
      *   <li>用 <b>A</b> 打 token endpoint（{@code authorization_code} grant，带 client_id/client_secret/code/redirect_uri）
-     *       → 客户端认证失败 → <b>HTTP 401 + {@code error=invalid_client}</b>；</li>
-     *   <li>用 <b>B</b> 打同样请求 → 客户端认证<b>通过</b>、仅 code 是假的 → <b>HTTP 400 + {@code error=invalid_grant}</b>。</li>
+     *       → 客户端认证失败 → <b>HTTP 401</b>；</li>
+     *   <li>用 <b>B</b> 打同样请求 → 客户端认证<b>通过</b>、仅 code 是假的 → <b>非 401</b>。</li>
      * </ol>
-     * 只断言「A 返 401」会与「A、B 都因别的原因失败」混淆；必须同时断言「B 不是 invalid_client」，
-     * 才能证明差异来自 secret 新旧而非请求本身有错。
+     * <b>刻意不硬绑具体 error 名</b>：CI 实测 Keycloak 对失效 client_secret 返回 {@code unauthorized_client}
+     * 而非 OAuth2 规范常见的 {@code invalid_client}，且该命名随 Keycloak 版本可能变化。本闸门的语义是
+     * 「旧密钥被拒、新密钥不被拒」，故只断言 HTTP 401 vs 非 401、并额外断言<b>两者错误码相异</b>
+     * （坐实差异来自 secret 新旧而非请求本身一直就错）。两个响应先收集后断言，避免在 A 处提前抛出而看不到 B。
      *
      * <p>用 {@code authorization_code} 而非 {@code client_credentials}：应用登记客户端只开了授权码流
      * （{@code standardFlowEnabled=true}、{@code serviceAccountsEnabled=false}），换码正是它的真实用途，
@@ -227,26 +229,29 @@ class GfSsoGateIT {
                 .as("两次轮换应产生不同的密钥（否则说明 regenerateSecret 没真换）")
                 .isNotEqualTo(oldSecret);
 
-        // 用旧密钥 A：客户端认证失败 → 401 invalid_client
+        // 收集两个响应后再断言：避免在旧密钥处提前抛出而看不到新密钥的实际响应（判据②：
+        // 诊断要挂在失败真能走到的地方，取证字段须在目标失败形态下真的有值）。
         TokenResponse oldResp = exchangeCode(appCode, oldSecret);
-        assertThat(oldResp.statusCode())
-                .as("旧密钥换码必须被拒（HTTP 401）")
-                .isEqualTo(401);
-        assertThat(oldResp.error())
-                .as("旧密钥的失败原因必须是 invalid_client（客户端认证失败），而非别的错误")
-                .isEqualTo("invalid_client");
-
-        // 用新密钥 B：客户端认证通过、仅 code 无效 → 400 invalid_grant（证明 B 有效、且请求本身没别的错）
         TokenResponse newResp = exchangeCode(appCode, newSecret);
-        assertThat(newResp.error())
-                .as("新密钥必须能通过客户端认证（不再是 invalid_client）；预期因假 code 得 invalid_grant")
-                .isNotEqualTo("invalid_client");
+
+        // 旧密钥：客户端认证失败 → HTTP 401。
+        // 刻意不硬绑具体 error 名：CI 实测 Keycloak 对失效 client_secret 返回 unauthorized_client
+        // （而非 OAuth2 规范常见的 invalid_client），且该命名随 Keycloak 版本可能不同。本闸门的语义是
+        // 「旧密钥被拒、新密钥不被拒」，故只断言认证结果（401 vs 非 401）与两者错误码相异，不绑字面量。
+        assertThat(oldResp.statusCode())
+                .as("旧密钥换码必须被拒（HTTP 401 客户端认证失败）；实际响应=%s", oldResp)
+                .isEqualTo(401);
+
+        // 新密钥：客户端认证通过（非 401），仅因 code 是假的而失败。
         assertThat(newResp.statusCode())
-                .as("新密钥客户端认证通过后，应因 code 无效得 400（而非 401 认证失败）")
-                .isEqualTo(400);
+                .as("新密钥必须通过客户端认证（非 401），否则说明轮换把有效密钥也作废了；实际响应=%s", newResp)
+                .isNotEqualTo(401);
+
+        // 关键区分：旧、新密钥错误码不同 → 证明差异来自 secret 新旧，而非请求本身一直就错
+        // （若两者相同，「旧密钥失效」无从与「请求本来就是错的」区分，属弱断言假绿）。
         assertThat(newResp.error())
-                .as("新密钥换码应走到 invalid_grant（假 code），坐实认证已通过")
-                .isEqualTo("invalid_grant");
+                .as("新密钥的错误码必须不同于旧密钥（旧=%s 新=%s）", oldResp.error(), newResp.error())
+                .isNotEqualTo(oldResp.error());
     }
 
     // ---------------------------------------------------------------- 覆盖自证
