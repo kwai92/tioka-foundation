@@ -15,6 +15,7 @@ import com.foundation.sync.application.SyncEngine;
 import com.foundation.sync.domain.SyncIdPrefix;
 import com.foundation.sync.domain.SyncSource;
 import com.foundation.sync.domain.SyncTask;
+import com.foundation.sync.infrastructure.AdapterRegistry;
 import com.foundation.sync.spi.ExternalIdentityHint;
 import com.foundation.sync.spi.ExternalRecord;
 import com.foundation.sync.spi.IncrementalCursor;
@@ -175,6 +176,10 @@ class GfSyncGateIT {
     @Autowired
     private SyncEngine engine;
 
+    /** AdapterRegistry 从容器发现全部 SyncSourceAdapter；注入它以便前置自证假适配器确已装载。 */
+    @Autowired
+    private AdapterRegistry adapters;
+
     @Autowired
     private PersonRepository persons;
 
@@ -224,7 +229,33 @@ class GfSyncGateIT {
         seedActivePerson(2);
         seedActivePerson(3);
 
+        // ---- 前置自证：把「pause=false」可能断在哪一环提前定位，避免笼统失败（判据②）----
+        // 若这里任一断言失败，说明问题在「引擎能否看到假适配器 / 本地 person 是否落库带 source」，
+        // 而非阈值判定本身；三条全过而 pause 仍 false，才说明是 diff 计算或阈值分支的问题。
+        assertThat(adapters.contains(SOURCE_TYPE))
+                .as("前置1：假适配器 GATE_FAKE 必须被 AdapterRegistry 装载（foundation.sync.adapters 已限定为它）；"
+                        + "未装载则 wanted 为空、不产生任何 diff")
+                .isTrue();
+        assertThat(activePersonCount())
+                .as("前置2：3 个人员必须以 source=GATE_FAKE、status=ACTIVE 落库；"
+                        + "listBySource 按 source 过滤，source 没写对则引擎看不到他们")
+                .isEqualTo(3);
+
         SyncEngine.SyncOutcome outcome = engine.run(source, SyncMode.FULL, SyncTriggerMode.MANUAL, OPERATOR);
+
+        // 前置3：任务不应 FAILED。execute 对 land 抛的任何 RuntimeException 都 catch 并返回
+        // SyncOutcome(failed_task, empty_diff, false)——异常被吞时 pause 同样是 false，故必须先排除这条路径。
+        assertThat(outcome.task().status())
+                .as("前置3：任务不应 FAILED（FAILED 说明 land 抛异常被 execute 吞掉，pause 才为 false）；实际=%s",
+                        outcome.task().status())
+                .isNotEqualTo(SyncTaskStatus.FAILED);
+
+        // 前置4：全量同步 + 来源快照为空 → 本地 3 人应全部判 DISABLE。diff 为空则 pause 必为 false，
+        // 这条把「diff 是否产生」与「阈值是否触发」解耦，失败信息直接指向 diff 环节。
+        assertThat(outcome.diff().countDisabled())
+                .as("前置4：全量同步且假适配器返回空快照，3 个在职人员应全部产生 DISABLE 差异；"
+                        + "为 0 说明 DiffPreviewService 全量删除分支没走到（capabilities/wanted/fullSnapshot 之一有问题）")
+                .isEqualTo(3);
 
         assertThat(outcome.pause())
                 .as("3 个在职人员全部被判停用，超过 5% 阈值，应触发暂停")
