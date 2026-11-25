@@ -180,6 +180,10 @@ class GfSyncGateIT {
     @Autowired
     private AdapterRegistry adapters;
 
+    /** MasterDataPort 是引擎读本地 person→LandedRecord 的入口；注入以直接复现该路径暴露真实异常。 */
+    @Autowired
+    private com.foundation.sync.domain.MasterDataPort masterData;
+
     @Autowired
     private PersonRepository persons;
 
@@ -230,8 +234,9 @@ class GfSyncGateIT {
         seedActivePerson(3);
 
         // ---- 前置自证：把「pause=false」可能断在哪一环提前定位，避免笼统失败（判据②）----
-        // 若这里任一断言失败，说明问题在「引擎能否看到假适配器 / 本地 person 是否落库带 source」，
-        // 而非阈值判定本身；三条全过而 pause 仍 false，才说明是 diff 计算或阈值分支的问题。
+        // 四条前置把「引擎能否看到假适配器 → 本地 person 是否落库带 source → 读取时是否抛异常被吞
+        // → diff 是否产生 → 阈值是否触发」逐级解耦。没有它们时，本闸门曾因一个 NPE 被
+        // SyncEngine.execute 吞成 FAILED 而只报出笼统的「pause 应为 true 却是 false」，无从定位。
         assertThat(adapters.contains(SOURCE_TYPE))
                 .as("前置1：假适配器 GATE_FAKE 必须被 AdapterRegistry 装载（foundation.sync.adapters 已限定为它）；"
                         + "未装载则 wanted 为空、不产生任何 diff")
@@ -241,13 +246,31 @@ class GfSyncGateIT {
                         + "listBySource 按 source 过滤，source 没写对则引擎看不到他们")
                 .isEqualTo(3);
 
+        // 前置2.5：直接走引擎读取本地 person → LandedRecord 的真实路径。此调用**不经** execute 的吞异常包装，
+        // 任何异常都会带真实栈直接失败，而不是被吞成 FAILED+INTERNAL。
+        // 本闸门造的人员 mobileCipher/emailCipher/mobileHash/emailHash 全为 null（「人员没有手机或邮箱」
+        // 是正常业务态、fdn_person 这些列可空），正是它曾暴露 LandedRecord 用 Map.copyOf 拒绝 null 值的 NPE。
+        // 与离线单测 LandedRecordTest 的分工：单测用手构 Map 锁定 record 的 null 容忍与不可变性；
+        // 本条覆盖**真实 PostgreSQL + MyBatis（SyncPersonDO → personFields → toPersonRecord）**的完整链路，
+        // 确保「可空 DB 列 → fields」这一段不会再次引入同类 NPE。
+        int loadedPersons = masterData.listBySource(SyncObjectType.PERSON, SOURCE_TYPE).size();
+        assertThat(loadedPersons)
+                .as("前置2.5：引擎应能从 fdn_person 读到 source=GATE_FAKE 的 3 个 LandedRecord（含可空敏感字段）")
+                .isEqualTo(3);
+
         SyncEngine.SyncOutcome outcome = engine.run(source, SyncMode.FULL, SyncTriggerMode.MANUAL, OPERATOR);
 
         // 前置3：任务不应 FAILED。execute 对 land 抛的任何 RuntimeException 都 catch 并返回
-        // SyncOutcome(failed_task, empty_diff, false)——异常被吞时 pause 同样是 false，故必须先排除这条路径。
+        // SyncOutcome(failed_task, empty_diff, false) 且**不打异常栈**——异常被吞时 pause 同样是 false。
+        // 但 execute 会发 fdn.sync.failed 事件、把 errorCode 落 outbox（BizException 存具体码、
+        // 其它 RuntimeException 存 INTERNAL），故失败信息带上该 payload，使「被吞的异常」仍可定位。
+        List<String> failPayloads = jdbc.queryForList(
+                "SELECT payload::text FROM fdn_outbox WHERE aggregate = ? AND event_type = 'fdn.sync.failed'",
+                String.class, outcome.task().id());
         assertThat(outcome.task().status())
-                .as("前置3：任务不应 FAILED（FAILED 说明 land 抛异常被 execute 吞掉，pause 才为 false）；实际=%s",
-                        outcome.task().status())
+                .as("前置3：任务不应 FAILED（FAILED 说明 land 抛异常被 execute 吞掉，pause 才为 false）；"
+                        + "实际=%s，fdn.sync.failed 的 errorCode 见 payload=%s",
+                        outcome.task().status(), failPayloads)
                 .isNotEqualTo(SyncTaskStatus.FAILED);
 
         // 前置4：全量同步 + 来源快照为空 → 本地 3 人应全部判 DISABLE。diff 为空则 pause 必为 false，
