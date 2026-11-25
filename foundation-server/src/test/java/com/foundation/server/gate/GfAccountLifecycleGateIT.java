@@ -105,8 +105,13 @@ import static org.assertj.core.api.Assertions.assertThat;
         // 见类 javadoc「为什么显式把 drift-threshold-percent 设为 0」
         "foundation.account.reconcile.drift-threshold-percent=0",
         // 把定时对账推到不会在测试期间自行触发的时刻，避免调度器与测试线程争抢同一批账号
-        // （与 IntegrationTestSupport 关掉后台调度器同一理由：单个测试管不住其它缓存上下文的调度器）
-        "foundation.account.reconcile.cron=0 0 4 1 1 ? 2099"
+        // （与 IntegrationTestSupport 关掉后台调度器同一理由：单个测试管不住其它缓存上下文的调度器）。
+        // **必须是 6 字段**（秒 分 时 日 月 周）：Spring 的 cron 不支持「年」字段，写成
+        // "0 0 4 1 1 ? 2099" 会让 @Scheduled 校验失败并直接打挂整个上下文
+        // （BeanCreationException: Cron expression must consist of 6 fields），
+        // 且报错发生在 accountReconcileJob 创建期，看起来像账号域装配问题而非测试配置问题。
+        // 每年 1 月 1 日 04:00 触发一次，测试期间不可能命中。
+        "foundation.account.reconcile.cron=0 0 4 1 1 ?"
 })
 class GfAccountLifecycleGateIT {
 
