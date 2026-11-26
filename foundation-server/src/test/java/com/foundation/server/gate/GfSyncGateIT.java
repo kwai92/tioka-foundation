@@ -298,6 +298,20 @@ class GfSyncGateIT {
                 .as("暂停期间不应有任何人员被停用")
                 .isEqualTo(0);
 
+        // 上面两条「仍 ACTIVE / 未停用」**本身不足以证明是删除保护的功劳**：
+        // IdempotentUpserter 的「非权威来源不得写主数据」越界守卫同样会让人保持 ACTIVE 且不抛异常。
+        // 曾因此得到过一次假绿（source 误设 authority=false）。故必须用日志证据把两者区分开：
+        List<String> warnMessages = jdbc.queryForList(
+                "SELECT message FROM fdn_sync_log WHERE task_id = ? AND level = 'WARN'",
+                String.class, outcome.task().id());
+        assertThat(warnMessages)
+                .as("必须留下「停用差异超阈值」的暂停 WARN，才证明是删除保护扣住了停用")
+                .anyMatch(message -> message != null && message.contains("停用差异超阈值"));
+        assertThat(warnMessages)
+                .as("不得出现「非权威来源越界」WARN：出现即说明来源不是权威来源、停用是被越界守卫跳过的，"
+                        + "此时「仍 ACTIVE」属假绿、并未验证删除保护；实际 WARN=%s", warnMessages)
+                .noneMatch(message -> message != null && message.contains("非权威来源越界"));
+
         // 事件：以 taskId 为 aggregate 落 outbox
         List<String> events = jdbc.queryForList(
                 "SELECT event_type FROM fdn_outbox WHERE aggregate = ?", String.class, outcome.task().id());
@@ -409,16 +423,38 @@ class GfSyncGateIT {
 
     // ---------------------------------------------------------------- 造数与工具
 
-    /** 造一个 GATE_FAKE 类型的同步来源（authority=false，避开「单一权威来源」部分唯一索引）。 */
+    /**
+     * 造一个 GATE_FAKE 类型的同步来源。
+     *
+     * <p><b>{@code authority} 必须为 {@code true}</b>——这是本闸门的一个关键前提，且曾因此踩坑：
+     * {@code IdempotentUpserter.land} 开头有越界守卫
+     * 「{@code !source.authority() && objectType != EXTERNAL_IDENTITY} → 跳过主数据落地 + 记 WARN」
+     * （javadoc：「非权威来源的落地范围被限制为只写 fdn_external_identity」）。若用 {@code authority=false}，
+     * 停用项会被这道守卫**静默跳过**、person 永不 DISABLED，且**不抛异常**（任务照样 SUCCEEDED），于是：
+     * <ul>
+     *   <li>「confirm 后应补落停用」必然失败（实际停用数为 0）；</li>
+     *   <li>更糟的是「暂停时人员仍 ACTIVE」会变成<b>假绿</b>——它成立的原因是越界守卫跳过了落地，
+     *       而<b>不是</b>删除保护扣住了停用。闸门会给出「删除保护生效」的错误结论。</li>
+     * </ul>
+     * 删除保护本就是为**权威来源**（有权改主数据者）设计的防线，故本闸门必须用权威来源才测到真语义。
+     *
+     * <p>唯一性：{@code uq_sync_source_authority} 是 {@code WHERE authority = TRUE} 的部分唯一索引，
+     * 全库至多一个权威来源。本闸门安全，因为 ① {@link #cleanUp()} 在每个用例前删掉全部
+     * {@code code LIKE 'gfsync%'} 的来源；② 全仓无任何迁移种子或其它代码创建 {@code authority=TRUE}
+     * 的来源（已 grep 核实）；③ gate 用例串行执行。三个用例各建各删，不会互相冲突。
+     *
+     * <p><b>DB 与 record 两处都要传 true</b>：{@code SyncEngine} 读的是传入的 {@code SyncSource} record
+     * （{@code source.authority()}），而非回查数据库；只改 SQL 不改 record 则守卫依旧生效。
+     */
     private SyncSource seedSource(String suffix) {
         String id = Ids.newId(SyncIdPrefix.SOURCE);
         String code = CODE_PREFIX + "-" + suffix + "-" + shortUlid();
         jdbc.update("INSERT INTO fdn_sync_source (id, code, name, source_type, authority, adapter_impl, "
-                        + "capabilities_json, config_json, status) VALUES (?, ?, ?, ?, false, 'gate.fake', '{}', '{}', 'ENABLED')",
+                        + "capabilities_json, config_json, status) VALUES (?, ?, ?, ?, true, 'gate.fake', '{}', '{}', 'ENABLED')",
                 id, code, "闸门同步源-" + suffix, SOURCE_TYPE);
         SourceCapabilities caps = new SourceCapabilities(Set.of(SyncObjectType.PERSON),
                 Set.of(IncrementalMode.FULL_ONLY), false, false);
-        return new SyncSource(id, code, "闸门同步源-" + suffix, SOURCE_TYPE, false, null, "gate.fake", null,
+        return new SyncSource(id, code, "闸门同步源-" + suffix, SOURCE_TYPE, true, null, "gate.fake", null,
                 caps, Map.of(), SyncSourceStatus.ENABLED, null, Instant.now());
     }
 
