@@ -1,6 +1,7 @@
 package com.foundation.sync.spi;
 
 import java.time.Instant;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -25,7 +26,16 @@ public record ExternalRecord(SyncObjectType objectType,
                              Instant updatedAt) {
 
     public ExternalRecord {
-        fields = fields == null ? Map.of() : Map.copyOf(fields);
+        // 刻意不用 Map.copyOf：它**拒绝 null 值**（抛 NPE），而来源侧字段值天然可能为 null。
+        // 实证路径：HttpFeishuApiClient.text() 对缺失/空白 JSON 字段返回 null，而
+        // FeishuDepartment.toExternalRecord() 无条件 fields.put("parent_id", parentOpenDepartmentId)
+        // ——飞书**根部门没有 parent_department_id**，故同步任何飞书组织树都会在根部门上抛 NPE。
+        // 该异常沿 SyncEngine.execute 被吞成任务 FAILED（不打栈），表现为「飞书同步莫名失败」。
+        // 与同一条流水线上的 MappedRecord / LandedRecord 保持一致（二者均容忍 null 值），
+        // 且保持键集完整（不跳过 null 键），使 FieldMapper 与差异比对的「键缺失 vs 值为 null」语义不变。
+        fields = fields == null
+                ? Map.of()
+                : Collections.unmodifiableMap(new LinkedHashMap<>(fields));
     }
 
     /** 便捷构造：未删除、无上级、无更新时间。 */
